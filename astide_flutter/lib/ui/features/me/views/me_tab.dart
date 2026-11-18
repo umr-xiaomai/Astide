@@ -27,6 +27,7 @@ class MeTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: WeuiColors.bg0,
       body: ListView(
+        padding: EdgeInsets.zero,
         children: [
           Material(
             color: WeuiColors.bg2,
