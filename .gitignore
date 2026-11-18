@@ -1,0 +1,15 @@
+.DS_Store
+*.log
+*.apk
+*.aab
+*.iml
+.idea/
+.dart_tool/
+build/
+**/build/
+**/.dart_tool/
+**/android/.gradle/
+**/android/local.properties
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
