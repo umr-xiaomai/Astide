@@ -49,9 +49,9 @@ void main() {
       expect(reloaded.keepAliveEnabled, isTrue);
     });
 
-    test('seeds default DeepSeek V4 API profiles and switches active profile', () async {
+    test('seeds default DeepSeek V4.1 Flash profile and switches active profile', () async {
       final profiles = await settingsRepo.listApiProfiles();
-      expect(profiles.length, greaterThanOrEqualTo(3));
+      expect(profiles.length, equals(1));
       expect(profiles.where((p) => p.isActive).length, equals(1));
       expect(profiles.first.model, equals('deepseek-flash'));
       expect(profiles.first.supportsVision, isTrue);

@@ -266,16 +266,6 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   ),
                 ),
                 _PresetChip(
-                  label: '+ DeepSeek V4 Pro',
-                  onTap: () => _applyQuickPreset(
-                    name: 'DeepSeek V4 Pro',
-                    baseUrl: 'https://api.deepseek.com',
-                    model: 'deepseek-v4-pro',
-                    vision: false,
-                    reasoning: true,
-                  ),
-                ),
-                _PresetChip(
                   label: '+ OpenAI / Vision',
                   onTap: () => _applyQuickPreset(
                     name: 'OpenAI GPT-4o',
@@ -290,7 +280,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
           ),
           WeuiCellGroup(
             title: '当前配置参数',
-            tips: 'DeepSeek 官方最新接口支持 deepseek-flash（支持图像理解与思考切换）和 deepseek-v4-pro。兼容所有 OpenAI 格式地址。',
+            tips: '默认使用 DeepSeek 官方 deepseek-flash（支持图像理解与思考切换），兼容所有 OpenAI 格式接口地址。',
             insetForm: true,
             children: [
               WeuiFormRow(label: '配置名称', controller: _nameCtrl, hintText: '如：DeepSeek Flash'),
@@ -317,7 +307,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
               WeuiFormRow(
                 label: '模型名称',
                 controller: _modelCtrl,
-                hintText: 'deepseek-flash / deepseek-v4-pro',
+                hintText: 'deepseek-flash',
                 trailing: GestureDetector(
                   onTap: _fetchAndPickModel,
                   child: const Text(

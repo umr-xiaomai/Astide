@@ -11,7 +11,7 @@
   - 支持开启 Android 前台守护服务常驻后台，AI 可根据当前时间与聊天上下文自主判断是否主动向你发微信消息并弹出系统通知；
   - 当会话较长时，在后台静默压缩早期记忆摘要并持久化到本地 SQLite，无任何提示干扰。
 - **OpenAI 兼容接口 & 多模态附件**：
-  - 预设最新 DeepSeek 官方接口（`deepseek-flash` / `deepseek-v4-pro`），支持 `deepseek-flash` 原生图像理解、Thinking 思考模式切换、`/models` 模型列表拉取及流式输出；
+  - 默认预设最新 DeepSeek V4.1 Flash（`deepseek-flash`），支持原生图像理解、Thinking 思考模式切换、`/models` 模型列表拉取及流式输出，并兼容自定义 OpenAI 格式接口；
   - 聊天支持发送相册图片、相机拍摄与多种文件（`.txt`、`.md`、`.json`、`.csv`、`.pdf`、`.docx`、`.xlsx`、`.pptx` 及常见代码文件），自动在本地提取文档文本随消息发送给模型。
 - **DeepSeek 官方历史记录导入**：
   - 支持直接粘贴 DeepSeek 官方导出 `.zip` 下载链接或选择本地 `.zip` 文件导入，完整解析分支会话（`parent_id` / `current_message_id`）、`THINK` 思考过程、图片附件（`.webp`）及文件记录，支持按原上下文继续聊天。

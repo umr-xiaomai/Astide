@@ -149,32 +149,36 @@ class SettingsRepository {
   Future<void> _seedDefaultProfilesIfEmpty(Database db) async {
     final rows = await db.query('api_profiles');
     if (rows.isNotEmpty) {
-      // Upgrade untouched legacy placeholder presets from earlier dev builds to current DeepSeek V4 models.
+      // Remove legacy empty-key placeholder presets (e.g. deepseek-v4-pro / deepseek-chat / deepseek-reasoner)
+      // while keeping any user-configured profiles intact.
       for (final row in rows) {
         final model = row['model'] as String? ?? '';
         final key = row['api_key'] as String? ?? '';
-        if (key.isEmpty && (model == 'deepseek-chat' || model == 'deepseek-reasoner')) {
-          final isReasoning = model == 'deepseek-reasoner';
-          await db.update(
-            'api_profiles',
-            {
-              'name': isReasoning ? 'DeepSeek V4 Pro' : 'DeepSeek Flash (V4.1)',
-              'base_url': 'https://api.deepseek.com',
-              'model': isReasoning ? 'deepseek-v4-pro' : 'deepseek-flash',
-              'supports_vision': isReasoning ? 0 : 1,
-              'supports_reasoning': isReasoning ? 1 : 0,
-              'updated_at': DateTime.now().millisecondsSinceEpoch,
-            },
-            where: 'id = ?',
-            whereArgs: [row['id']],
-          );
+        if (key.isEmpty &&
+            (model == 'deepseek-v4-pro' ||
+                model == 'deepseek-chat' ||
+                model == 'deepseek-reasoner' ||
+                row['name'] == 'DeepSeek Flash (思考模式)')) {
+          await db.delete('api_profiles', where: 'id = ?', whereArgs: [row['id']]);
         }
       }
-      return;
+      final remaining = await db.query('api_profiles', orderBy: 'created_at ASC');
+      if (remaining.isNotEmpty) {
+        if (remaining.every((r) => (r['is_active'] as int? ?? 0) == 0)) {
+          await db.update(
+            'api_profiles',
+            {'is_active': 1},
+            where: 'id = ?',
+            whereArgs: [remaining.first['id']],
+          );
+        }
+        return;
+      }
     }
 
     final now = DateTime.now();
-    final defaults = [
+    await db.insert(
+      'api_profiles',
       ApiProfile(
         id: _uuid.v4(),
         name: 'DeepSeek Flash (V4.1)',
@@ -188,39 +192,7 @@ class SettingsRepository {
         isActive: true,
         createdAt: now,
         updatedAt: now,
-      ),
-      ApiProfile(
-        id: _uuid.v4(),
-        name: 'DeepSeek Flash (思考模式)',
-        baseUrl: 'https://api.deepseek.com',
-        apiKey: '',
-        model: 'deepseek-flash',
-        supportsVision: true,
-        supportsReasoning: true,
-        streamEnabled: true,
-        temperature: 0.7,
-        isActive: false,
-        createdAt: now.add(const Duration(milliseconds: 1)),
-        updatedAt: now,
-      ),
-      ApiProfile(
-        id: _uuid.v4(),
-        name: 'DeepSeek V4 Pro',
-        baseUrl: 'https://api.deepseek.com',
-        apiKey: '',
-        model: 'deepseek-v4-pro',
-        supportsVision: false,
-        supportsReasoning: true,
-        streamEnabled: true,
-        temperature: 0.7,
-        isActive: false,
-        createdAt: now.add(const Duration(milliseconds: 2)),
-        updatedAt: now,
-      ),
-    ];
-
-    for (final profile in defaults) {
-      await db.insert('api_profiles', profile.toMap());
-    }
+      ).toMap(),
+    );
   }
 }
