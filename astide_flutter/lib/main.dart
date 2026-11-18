@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -33,6 +35,8 @@ class AstideApp extends StatefulWidget {
 }
 
 class _AstideAppState extends State<AstideApp> with WidgetsBindingObserver {
+  DateTime? _lastResumeCheckAt;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +49,14 @@ class _AstideAppState extends State<AstideApp> with WidgetsBindingObserver {
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden;
     widget.controller.setAppInBackground(inBackground);
+
+    if (state == AppLifecycleState.resumed && widget.controller.settings.autonomousEnabled) {
+      final now = DateTime.now();
+      if (_lastResumeCheckAt == null || now.difference(_lastResumeCheckAt!).inMinutes >= 2) {
+        _lastResumeCheckAt = now;
+        unawaited(widget.controller.triggerAutonomousNow(forceSend: false));
+      }
+    }
   }
 
   @override

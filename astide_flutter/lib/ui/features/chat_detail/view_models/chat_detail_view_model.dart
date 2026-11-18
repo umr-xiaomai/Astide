@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -8,7 +9,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../../app_scope.dart';
+import '../../../../data/services/autonomous_service.dart';
 import '../../../../data/services/context_compaction_service.dart';
+import '../../../../domain/models/api_profile.dart';
 import '../../../../domain/models/character_profile.dart';
 import '../../../../domain/models/chat_attachment.dart';
 import '../../../../domain/models/chat_message.dart';
@@ -42,11 +45,14 @@ class ChatDetailViewModel extends ChangeNotifier {
   ChatDetailViewModel({
     required AppController appController,
     required Conversation conversation,
+    Random? random,
   })  : _app = appController,
-        _conversation = conversation; // ignore: prefer_initializing_formals
+        _conversation = conversation, // ignore: prefer_initializing_formals
+        _random = random ?? Random();
 
   final AppController _app;
   final ImagePicker _imagePicker = ImagePicker();
+  final Random _random;
 
   Conversation _conversation;
   Conversation get conversation => _conversation;
@@ -78,6 +84,8 @@ class ChatDetailViewModel extends ChangeNotifier {
   CancelToken? _cancelToken;
   StreamSubscription<dynamic>? _streamSub;
   bool _disposed = false;
+  bool _pokeReplyInFlight = false;
+  DateTime? _lastPokeReplyAt;
 
   static const int _pageSize = 40;
 
@@ -294,6 +302,162 @@ class ChatDetailViewModel extends ChangeNotifier {
     _cancelToken?.cancel('stopped_by_user');
     await _streamSub?.cancel();
     _streamSub = null;
+    if (_isStreaming) {
+      _isStreaming = false;
+      _safeNotify();
+    }
+  }
+
+  /// Sends a WeChat-style "拍一拍" system notice and probabilistically triggers an AI response.
+  Future<bool> pokeOpponent() async {
+    final targetName = _character?.displayName ?? _conversation.title;
+    final now = DateTime.now();
+    final pokeNotice = ChatMessage(
+      id: _app.newId(),
+      conversationId: _conversation.id,
+      role: MessageRole.system,
+      content: '你拍了拍“$targetName”',
+      status: MessageStatus.sent,
+      createdAt: now,
+    );
+
+    _messages = [..._messages, pokeNotice];
+    _safeNotify();
+    await _app.chatRepository.insertMessage(pokeNotice);
+    unawaited(_app.reloadConversations());
+
+    if (_disposed || _isStreaming || _pokeReplyInFlight) return false;
+    if (_conversation.sourceType == ConversationSourceType.deepseekImport) return false;
+
+    final profile = _app.activeApiProfile;
+    if (profile == null || !profile.isConfigured) return false;
+
+    if (_lastPokeReplyAt != null && now.difference(_lastPokeReplyAt!).inSeconds < 12) {
+      return false;
+    }
+
+    final prob = _app.settings.pokeReplyProbability.clamp(0.0, 1.0);
+    if (prob <= 0 || _random.nextDouble() >= prob) {
+      return false;
+    }
+
+    _pokeReplyInFlight = true;
+    _lastPokeReplyAt = now;
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 520));
+      if (_disposed || _isStreaming) return false;
+      return await _generatePokeReaction(profile: profile, targetName: targetName);
+    } finally {
+      _pokeReplyInFlight = false;
+    }
+  }
+
+  Future<bool> _generatePokeReaction({
+    required ApiProfile profile,
+    required String targetName,
+  }) async {
+    final now = DateTime.now();
+    final ctx = await _prepareLlmContext(profile, excludeMessageId: '');
+    if (_disposed || _isStreaming) return false;
+
+    final userNick = _app.settings.userNickname.trim().isEmpty
+        ? '对方'
+        : _app.settings.userNickname.trim();
+    final fastProfile = profile.copyWith(supportsReasoning: false, streamEnabled: false);
+    final ephemeralHistory = <ChatMessage>[
+      ...ctx.history,
+      ChatMessage(
+        id: 'poke_event_${now.millisecondsSinceEpoch}',
+        conversationId: _conversation.id,
+        role: MessageRole.user,
+        content: '（微信互动事件：$userNick 在聊天窗口轻轻双击你的头像，拍了拍你。'
+            '请完全按你当前人设与聊天氛围自然回应一句，例如调侃、撒娇、好奇或关心，只发一条简短自然的话；'
+            '如果你想顺手回拍对方，可在最开头加上 [POKE_BACK]。不要提及系统事件或AI。）',
+        createdAt: now,
+      ),
+    ];
+
+    try {
+      final rawBuf = StringBuffer();
+      await for (final delta in _app.openAiChatService.streamChatCompletion(
+        profile: fastProfile,
+        history: ephemeralHistory,
+        systemPrompt: ctx.systemPrompt,
+        modelOverride: _character?.modelOverride,
+        maxTokens: 140,
+        forceNonStreaming: true,
+      )) {
+        rawBuf.write(delta.contentDelta);
+      }
+
+      if (_disposed || _isStreaming) return false;
+      final parsed = AutonomousService.parseSingleReply(rawBuf.toString());
+      if (parsed.isDoneOrSkip && !parsed.pokedBack) return false;
+
+      var replied = false;
+      if (parsed.pokedBack) {
+        final backNotice = ChatMessage(
+          id: _app.newId(),
+          conversationId: _conversation.id,
+          role: MessageRole.system,
+          content: '“$targetName” 拍了拍你',
+          status: MessageStatus.sent,
+          createdAt: DateTime.now(),
+        );
+        _messages = [..._messages, backNotice];
+        _safeNotify();
+        await _app.chatRepository.insertMessage(backNotice);
+        replied = true;
+      }
+
+      if (parsed.text.isNotEmpty) {
+        final replyMsg = ChatMessage(
+          id: _app.newId(),
+          conversationId: _conversation.id,
+          role: MessageRole.assistant,
+          content: parsed.text,
+          status: MessageStatus.sent,
+          createdAt: DateTime.now().add(const Duration(milliseconds: 20)),
+        );
+        _messages = [..._messages, replyMsg];
+        _safeNotify();
+        await _app.chatRepository.insertMessage(replyMsg);
+        replied = true;
+      }
+
+      if (replied) {
+        unawaited(_app.reloadConversations());
+      }
+      return replied;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<({List<ChatMessage> history, String systemPrompt})> _prepareLlmContext(
+    ApiProfile profile, {
+    required String excludeMessageId,
+  }) async {
+    final compacted = await _app.contextCompactionService.prepareContext(
+      conversationId: _conversation.id,
+      profile: profile,
+    );
+    final momentsSnippet = _conversation.sourceType == ConversationSourceType.deepseekImport
+        ? ''
+        : await _app.momentsRepository.buildMomentsContextSnippet(
+            characterId: _character?.id,
+          );
+    final baseHistory = compacted.recentMessages.isNotEmpty
+        ? compacted.recentMessages
+        : _messages.where((m) => m.id != excludeMessageId).toList();
+    var systemPrompt = ContextCompactionService.mergeSystemPrompt(
+      _buildSystemPrompt(),
+      compacted.summary,
+    );
+    if (momentsSnippet.isNotEmpty) {
+      systemPrompt = '$systemPrompt\n\n$momentsSnippet';
+    }
+    return (history: baseHistory, systemPrompt: systemPrompt);
   }
 
   Future<void> _generateAssistantReply() async {
@@ -332,48 +496,72 @@ class ChatDetailViewModel extends ChangeNotifier {
     _cancelToken = CancelToken();
     _safeNotify();
 
-    // Silently compact overflowing history in the background before building prompt context.
-    final compacted = await _app.contextCompactionService.prepareContext(
-      conversationId: _conversation.id,
-      profile: profile,
-    );
-    final momentsSnippet = _conversation.sourceType == ConversationSourceType.deepseekImport
-        ? ''
-        : await _app.momentsRepository.buildMomentsContextSnippet(
-            characterId: _character?.id,
-          );
-    final historySnapshot = compacted.recentMessages.isNotEmpty
-        ? compacted.recentMessages
-        : _messages.where((m) => m.id != assistantId).toList();
-    var systemPrompt = ContextCompactionService.mergeSystemPrompt(
-      _buildSystemPrompt(),
-      compacted.summary,
-    );
-    if (momentsSnippet.isNotEmpty) {
-      systemPrompt = '$systemPrompt\n\n$momentsSnippet';
+    final ctx = await _prepareLlmContext(profile, excludeMessageId: assistantId);
+    if (_disposed || (_cancelToken?.isCancelled ?? false)) {
+      _messages.removeWhere((m) => m.id == assistantId);
+      _isStreaming = false;
+      _safeNotify();
+      return;
     }
+
+    final firstMsg = await _streamPrimaryReply(
+      assistantId: assistantId,
+      createdAt: createdAt,
+      profile: profile,
+      history: ctx.history,
+      systemPrompt: ctx.systemPrompt,
+      placeholder: streamingPlaceholder,
+    );
+
+    // For conversational personas, perform up to 2 lightweight sequential follow-up requests
+    // so multi-bubble WeChat turns arrive organically without delimiter splitting artifacts.
+    final shouldAttemptMultiRequest = firstMsg != null &&
+        firstMsg.status == MessageStatus.sent &&
+        firstMsg.content.isNotEmpty &&
+        !firstMsg.content.contains('```') &&
+        firstMsg.content.length < 180 &&
+        !_disposed &&
+        !(_cancelToken?.isCancelled ?? false) &&
+        _conversation.sourceType != ConversationSourceType.deepseekImport;
+
+    if (shouldAttemptMultiRequest) {
+      await _runSequentialContinuationRequests(
+        profile: profile,
+        initialHistory: [...ctx.history, firstMsg],
+        systemPrompt: ctx.systemPrompt,
+        baseTime: firstMsg.createdAt,
+      );
+    }
+
+    _isStreaming = false;
+    _streamSub = null;
+    _safeNotify();
+    unawaited(_app.reloadConversations());
+  }
+
+  Future<ChatMessage?> _streamPrimaryReply({
+    required String assistantId,
+    required DateTime createdAt,
+    required ApiProfile profile,
+    required List<ChatMessage> history,
+    required String systemPrompt,
+    required ChatMessage placeholder,
+  }) async {
     final modelOverride = _character?.modelOverride;
     final contentBuf = StringBuffer();
     final reasoningBuf = StringBuffer();
     DateTime? thinkingStart;
     var thinkingSecs = 0.0;
-
-    final completer = Completer<void>();
+    final completer = Completer<ChatMessage?>();
 
     void updateLiveBubble({
       MessageStatus status = MessageStatus.streaming,
       String errorMessage = '',
     }) {
-      final allowSegment = _character != null ||
-          _conversation.sourceType == ConversationSourceType.direct;
-      final displayContent = allowSegment
-          ? contentBuf.toString().replaceAll('|||', '\n')
-          : contentBuf.toString();
-
       final idx = _messages.indexWhere((m) => m.id == assistantId);
       if (idx >= 0) {
         _messages[idx] = _messages[idx].copyWith(
-          content: displayContent,
+          content: contentBuf.toString(),
           reasoningContent: reasoningBuf.toString(),
           thinkingSeconds: thinkingSecs,
           status: status,
@@ -385,7 +573,7 @@ class ChatDetailViewModel extends ChangeNotifier {
 
     final stream = _app.openAiChatService.streamChatCompletion(
       profile: profile,
-      history: historySnapshot,
+      history: history,
       systemPrompt: systemPrompt,
       modelOverride: modelOverride,
       cancelToken: _cancelToken,
@@ -406,7 +594,6 @@ class ChatDetailViewModel extends ChangeNotifier {
         }
       },
       onError: (Object err) async {
-        _isStreaming = false;
         _streamSub = null;
         final errText = err.toString().replaceFirst('HttpException: ', '');
         updateLiveBubble(
@@ -415,104 +602,193 @@ class ChatDetailViewModel extends ChangeNotifier {
         );
         final failedMsg = _messages.firstWhere(
           (m) => m.id == assistantId,
-          orElse: () => streamingPlaceholder.copyWith(
+          orElse: () => placeholder.copyWith(
             status: MessageStatus.error,
             errorMessage: errText,
           ),
         );
         await _app.chatRepository.insertMessage(failedMsg);
-        unawaited(_app.reloadConversations());
-        if (!completer.isCompleted) completer.complete();
+        if (!completer.isCompleted) completer.complete(null);
       },
       onDone: () async {
-        _isStreaming = false;
         _streamSub = null;
-        await _finalizeStreamedReply(
-          assistantId: assistantId,
-          rawContent: contentBuf.toString(),
-          reasoning: reasoningBuf.toString(),
-          thinkingSecs: thinkingSecs,
+        final trimmed = contentBuf.toString().trim();
+        final trimmedReasoning = reasoningBuf.toString().trim();
+        if (trimmed.isEmpty && trimmedReasoning.isEmpty) {
+          _messages.removeWhere((m) => m.id == assistantId);
+          _safeNotify();
+          if (!completer.isCompleted) completer.complete(null);
+          return;
+        }
+
+        final finalMsg = ChatMessage(
+          id: assistantId,
+          conversationId: _conversation.id,
+          role: MessageRole.assistant,
+          content: trimmed,
+          reasoningContent: trimmedReasoning,
+          thinkingSeconds: thinkingSecs,
+          status: MessageStatus.sent,
           createdAt: createdAt,
         );
-        if (!completer.isCompleted) completer.complete();
+        final idx = _messages.indexWhere((m) => m.id == assistantId);
+        if (idx >= 0) {
+          _messages[idx] = finalMsg;
+        } else {
+          _messages = [..._messages, finalMsg];
+        }
+        _safeNotify();
+        await _app.chatRepository.insertMessage(finalMsg);
+        if (!completer.isCompleted) completer.complete(finalMsg);
       },
       cancelOnError: true,
     );
 
-    await completer.future;
+    return completer.future;
   }
 
-  Future<void> _finalizeStreamedReply({
-    required String assistantId,
-    required String rawContent,
-    required String reasoning,
-    required double thinkingSecs,
+  Future<void> _runSequentialContinuationRequests({
+    required ApiProfile profile,
+    required List<ChatMessage> initialHistory,
+    required String systemPrompt,
+    required DateTime baseTime,
+  }) async {
+    final runningHistory = List<ChatMessage>.from(initialHistory);
+    final followUpProfile = profile.copyWith(supportsReasoning: false);
+
+    for (var extra = 1; extra <= 2; extra++) {
+      if (_disposed || (_cancelToken?.isCancelled ?? false)) break;
+      await Future<void>.delayed(const Duration(milliseconds: 280));
+      if (_disposed || (_cancelToken?.isCancelled ?? false)) break;
+
+      final turnTime = baseTime.add(Duration(milliseconds: extra * 15));
+      final requestHistory = <ChatMessage>[
+        ...runningHistory,
+        ChatMessage(
+          id: 'cont_${turnTime.millisecondsSinceEpoch}_$extra',
+          conversationId: _conversation.id,
+          role: MessageRole.user,
+          content: AutonomousService.continuationUserPrompt,
+          createdAt: turnTime,
+        ),
+      ];
+
+      final nextMsg = await _streamFollowUpMessage(
+        profile: followUpProfile,
+        history: requestHistory,
+        systemPrompt: systemPrompt,
+        createdAt: turnTime,
+      );
+      if (nextMsg == null || nextMsg.content.isEmpty) break;
+      runningHistory.add(nextMsg);
+    }
+  }
+
+  bool _couldBeControlTokenPrefix(String raw) {
+    final upper = raw.trimLeft().toUpperCase();
+    if (upper.isEmpty) return true;
+    if (!upper.startsWith('[')) return false;
+    return '[DONE]'.startsWith(upper) || '[SKIP]'.startsWith(upper);
+  }
+
+  Future<ChatMessage?> _streamFollowUpMessage({
+    required ApiProfile profile,
+    required List<ChatMessage> history,
+    required String systemPrompt,
     required DateTime createdAt,
   }) async {
-    final trimmed = rawContent.trim();
-    if (trimmed.isEmpty && reasoning.trim().isEmpty) {
-      _messages.removeWhere((m) => m.id == assistantId);
-      _safeNotify();
-      return;
-    }
+    final msgId = _app.newId();
+    final contentBuf = StringBuffer();
+    var bubbleInserted = false;
+    final completer = Completer<ChatMessage?>();
 
-    final allowMultiBubble = !trimmed.contains('```') &&
-        trimmed.contains('|||') &&
-        (_character != null || _conversation.sourceType == ConversationSourceType.direct);
-
-    if (allowMultiBubble) {
-      final segments = trimmed
-          .split('|||')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-      if (segments.length > 1) {
-        _messages.removeWhere((m) => m.id == assistantId);
-        _safeNotify();
-
-        for (var i = 0; i < segments.length; i++) {
-          final segMsg = ChatMessage(
-            id: i == 0 ? assistantId : _app.newId(),
+    void ensureVisibleBubble() {
+      if (!bubbleInserted) {
+        bubbleInserted = true;
+        _messages = [
+          ..._messages,
+          ChatMessage(
+            id: msgId,
             conversationId: _conversation.id,
             role: MessageRole.assistant,
-            content: segments[i],
-            reasoningContent: i == 0 ? reasoning.trim() : '',
-            thinkingSeconds: i == 0 ? thinkingSecs : 0,
-            status: MessageStatus.sent,
-            createdAt: createdAt.add(Duration(milliseconds: i * 15)),
+            content: contentBuf.toString().trimLeft(),
+            status: MessageStatus.streaming,
+            createdAt: createdAt,
+          ),
+        ];
+        _safeNotify();
+      } else {
+        final idx = _messages.indexWhere((m) => m.id == msgId);
+        if (idx >= 0) {
+          _messages[idx] = _messages[idx].copyWith(
+            content: contentBuf.toString().trimLeft(),
           );
-          _messages = [..._messages, segMsg];
           _safeNotify();
-          await _app.chatRepository.insertMessage(segMsg);
-          if (i < segments.length - 1 && !_disposed) {
-            await Future<void>.delayed(const Duration(milliseconds: 220));
-          }
         }
-        unawaited(_app.reloadConversations());
-        return;
       }
     }
 
-    final finalMsg = ChatMessage(
-      id: assistantId,
-      conversationId: _conversation.id,
-      role: MessageRole.assistant,
-      content: trimmed.replaceAll('|||', '\n'),
-      reasoningContent: reasoning.trim(),
-      thinkingSeconds: thinkingSecs,
-      status: MessageStatus.sent,
-      createdAt: createdAt,
+    final stream = _app.openAiChatService.streamChatCompletion(
+      profile: profile,
+      history: history,
+      systemPrompt: systemPrompt,
+      modelOverride: _character?.modelOverride,
+      maxTokens: 120,
+      cancelToken: _cancelToken,
     );
 
-    final idx = _messages.indexWhere((m) => m.id == assistantId);
-    if (idx >= 0) {
-      _messages[idx] = finalMsg;
-    } else {
-      _messages = [..._messages, finalMsg];
-    }
-    _safeNotify();
-    await _app.chatRepository.insertMessage(finalMsg);
-    unawaited(_app.reloadConversations());
+    _streamSub = stream.listen(
+      (delta) {
+        if (delta.contentDelta.isNotEmpty) {
+          contentBuf.write(delta.contentDelta);
+          final raw = contentBuf.toString();
+          if (bubbleInserted || !_couldBeControlTokenPrefix(raw)) {
+            ensureVisibleBubble();
+          }
+        }
+      },
+      onError: (_) {
+        _streamSub = null;
+        if (bubbleInserted) {
+          _messages.removeWhere((m) => m.id == msgId);
+          _safeNotify();
+        }
+        if (!completer.isCompleted) completer.complete(null);
+      },
+      onDone: () async {
+        _streamSub = null;
+        final parsed = AutonomousService.parseSingleReply(contentBuf.toString());
+        if (parsed.isDoneOrSkip || parsed.text.isEmpty) {
+          if (bubbleInserted) {
+            _messages.removeWhere((m) => m.id == msgId);
+            _safeNotify();
+          }
+          if (!completer.isCompleted) completer.complete(null);
+          return;
+        }
+
+        final finalMsg = ChatMessage(
+          id: msgId,
+          conversationId: _conversation.id,
+          role: MessageRole.assistant,
+          content: parsed.text,
+          status: MessageStatus.sent,
+          createdAt: createdAt,
+        );
+        final idx = _messages.indexWhere((m) => m.id == msgId);
+        if (idx >= 0) {
+          _messages[idx] = finalMsg;
+        } else {
+          _messages = [..._messages, finalMsg];
+        }
+        _safeNotify();
+        await _app.chatRepository.insertMessage(finalMsg);
+        if (!completer.isCompleted) completer.complete(finalMsg);
+      },
+      cancelOnError: true,
+    );
+
+    return completer.future;
   }
 
   String _buildSystemPrompt() {

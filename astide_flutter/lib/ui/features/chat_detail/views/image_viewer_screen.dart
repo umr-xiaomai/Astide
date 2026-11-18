@@ -16,8 +16,19 @@ class ImageViewerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAsset = imagePath.startsWith('asset:');
+    final assetPath = isAsset ? imagePath.substring(6) : '';
     final file = File(imagePath);
     final isSvg = imagePath.toLowerCase().endsWith('.svg');
+
+    Widget? media;
+    if (isAsset) {
+      media = Image.asset(assetPath, fit: BoxFit.contain);
+    } else if (file.existsSync()) {
+      media = isSvg
+          ? SvgPicture.file(file, width: 340, height: 260, fit: BoxFit.contain)
+          : Image.file(file, fit: BoxFit.contain);
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -33,13 +44,11 @@ class ImageViewerScreen extends StatelessWidget {
             : null,
       ),
       body: Center(
-        child: file.existsSync()
+        child: media != null
             ? InteractiveViewer(
                 minScale: 0.8,
                 maxScale: 5.0,
-                child: isSvg
-                    ? SvgPicture.file(file, width: 340, height: 260, fit: BoxFit.contain)
-                    : Image.file(file, fit: BoxFit.contain),
+                child: media,
               )
             : const Text(
                 '图片文件不存在或已被移除',

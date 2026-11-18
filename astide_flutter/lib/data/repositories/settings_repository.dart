@@ -19,6 +19,8 @@ class SettingsRepository {
   static const _kAutonomousEnabled = 'autonomous_enabled';
   static const _kKeepAliveEnabled = 'keep_alive_enabled';
   static const _kAutonomousInterval = 'autonomous_interval_minutes';
+  static const _kAutonomousProbability = 'autonomous_probability';
+  static const _kPokeReplyProbability = 'poke_reply_probability';
   static const _kQuietHoursEnabled = 'quiet_hours_enabled';
   static const _kUserNickname = 'user_nickname';
   static const _kUserAvatarPath = 'user_avatar_path';
@@ -35,10 +37,9 @@ class SettingsRepository {
     var prompt = (map[_kDefaultPrompt] ?? '').isNotEmpty
         ? map[_kDefaultPrompt]!
         : defaults.defaultAssistantPrompt;
-    // Upgrade legacy stored default prompt that predates multi-bubble `|||` instructions.
+    // Upgrade legacy stored default prompts that contained old `|||` delimiter instructions.
     if (prompt.startsWith('你叫星汐，英文名 Astide。') &&
-        prompt.endsWith('舒服地交流。') &&
-        !prompt.contains('|||')) {
+        (prompt.contains('|||') || prompt.endsWith('舒服地交流。'))) {
       prompt = defaults.defaultAssistantPrompt;
       await db.insert(
         'app_settings',
@@ -51,6 +52,12 @@ class SettingsRepository {
       keepAliveEnabled: map[_kKeepAliveEnabled] == '1',
       autonomousIntervalMinutes:
           int.tryParse(map[_kAutonomousInterval] ?? '') ?? defaults.autonomousIntervalMinutes,
+      autonomousProbability: (double.tryParse(map[_kAutonomousProbability] ?? '') ??
+              defaults.autonomousProbability)
+          .clamp(0.0, 1.0),
+      pokeReplyProbability: (double.tryParse(map[_kPokeReplyProbability] ?? '') ??
+              defaults.pokeReplyProbability)
+          .clamp(0.0, 1.0),
       quietHoursEnabled: map[_kQuietHoursEnabled] != '0',
       userNickname: (map[_kUserNickname] ?? '').isNotEmpty
           ? map[_kUserNickname]!
@@ -67,6 +74,8 @@ class SettingsRepository {
       _kAutonomousEnabled: settings.autonomousEnabled ? '1' : '0',
       _kKeepAliveEnabled: settings.keepAliveEnabled ? '1' : '0',
       _kAutonomousInterval: settings.autonomousIntervalMinutes.toString(),
+      _kAutonomousProbability: settings.autonomousProbability.toStringAsFixed(2),
+      _kPokeReplyProbability: settings.pokeReplyProbability.toStringAsFixed(2),
       _kQuietHoursEnabled: settings.quietHoursEnabled ? '1' : '0',
       _kUserNickname: settings.userNickname,
       _kUserAvatarPath: settings.userAvatarPath ?? '',

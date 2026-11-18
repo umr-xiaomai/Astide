@@ -54,9 +54,10 @@ void main() {
     await tester.pumpWidget(AstideApp(controller: controller));
     await tester.pumpAndSettle();
 
-    // Tab 1: 星汐 chat list with forced-pinned Astide conversation + second conversation
+    // Tab 1: 星汐 chat list with forced-pinned Astide conversation + second conversation, no top-left dots
     expect(find.text('星汐'), findsAtLeastNWidgets(1));
     expect(find.text('星汐 Astide'), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_StatusDot'), findsNothing);
     expect(find.text('小喵助手'), findsOneWidget);
     expect(find.text('通讯录'), findsOneWidget);
     expect(find.text('发现'), findsOneWidget);
@@ -107,5 +108,44 @@ void main() {
     await tester.tap(find.text('星汐 Astide'));
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
+
+    // Focus the composer input (simulating IME focus) before tapping opponent avatar.
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+
+    // Double-tap opponent avatar triggers WeChat "拍一拍"
+    final opponentAvatar = find.descendant(
+      of: find.byType(ListView),
+      matching: find.byWidgetPredicate((w) => w.runtimeType.toString() == '_ChatInteractiveAvatar'),
+    );
+    expect(opponentAvatar, findsOneWidget);
+    await tester.tap(opponentAvatar);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(opponentAvatar);
+    await tester.pumpAndSettle();
+    expect(find.text('你拍了拍“星汐 Astide”'), findsOneWidget);
+
+    // Single-tap opponent avatar opens 对方主页, then 发消息 returns back
+    await tester.tap(opponentAvatar);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('对方主页'), findsOneWidget);
+    expect(find.text('发消息'), findsOneWidget);
+    await tester.tap(find.text('发消息'));
+    await tester.pumpAndSettle();
+
+    // Navigate back to 我 -> 本地存储与数据管理 -> 导出本地会话
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('我'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('本地存储与数据管理'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导出本地会话记录'));
+    await tester.pumpAndSettle();
+    expect(find.text('SQLite 数据库 (.sqlite)'), findsOneWidget);
+    expect(find.text('XML 文档 (.xml)'), findsOneWidget);
+    expect(find.text('JSON 数据 (.json)'), findsOneWidget);
+    expect(find.text('纯文本记录 (.txt)'), findsOneWidget);
   });
 }

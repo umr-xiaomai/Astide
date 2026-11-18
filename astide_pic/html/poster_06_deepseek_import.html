@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>P6 DeepSeek 官方数据导入 - 星汐 Astide</title>
+<link rel="stylesheet" href="poster_theme.css">
+<style>
+  .canvas {
+    background: linear-gradient(155deg, #EEF3FF 0%, #E4EDFF 48%, #EAF7F0 100%);
+  }
+  .glow-1 {
+    width: 660px; height: 660px;
+    top: -160px; right: -140px;
+    background: rgba(77, 107, 254, 0.22);
+  }
+  .glow-2 {
+    width: 520px; height: 520px;
+    bottom: -140px; left: -140px;
+    background: rgba(7, 193, 96, 0.16);
+  }
+  .page-tag {
+    background: #3F62FE;
+    color: #FFFFFF;
+    box-shadow: 0 10px 24px rgba(63, 98, 254, 0.26);
+  }
+  .eyebrow {
+    background: rgba(63, 98, 254, 0.13);
+    color: #2E4FE0;
+  }
+  .headline {
+    color: #111827;
+  }
+  .headline .accent {
+    color: #3F62FE;
+  }
+  .subhead {
+    color: #414D63;
+  }
+  .split-body {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 44px;
+    margin: 8px 0;
+  }
+  .features-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .step-card {
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 24px;
+    padding: 22px 26px;
+    border: 1px solid rgba(63, 98, 254, 0.16);
+    box-shadow: 0 14px 34px rgba(24, 42, 92, 0.08);
+  }
+  .step-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 29px;
+    font-weight: 800;
+    color: #141B29;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: #3F62FE;
+    color: #FFFFFF;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+  }
+  .step-num.green {
+    background: #07C160;
+  }
+  .step-desc {
+    margin-top: 8px;
+    font-size: 23px;
+    color: #4B576D;
+    line-height: 1.46;
+  }
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 2px;
+  }
+  .ds-chip {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(63, 98, 254, 0.22);
+    color: #2D4CE0;
+    font-size: 21px;
+    font-weight: 700;
+  }
+  .phone-frame {
+    width: 492px;
+    height: 960px;
+    flex-shrink: 0;
+  }
+  .phone-float-note {
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    bottom: 34px;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 20px;
+    padding: 18px 20px;
+    border: 1px solid rgba(7, 193, 96, 0.22);
+    box-shadow: 0 12px 26px rgba(15, 34, 62, 0.12);
+  }
+  .phone-float-title {
+    font-size: 21px;
+    font-weight: 800;
+    color: #068944;
+    margin-bottom: 6px;
+  }
+  .phone-float-text {
+    font-size: 19px;
+    color: #3E4A5C;
+    line-height: 1.42;
+  }
+  .footer {
+    color: #46526A;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <div class="topbar">
+    <div class="brand-pill">
+      <img src="../logo/astide_logo.svg" alt="Astide Logo">
+      <span>星汐 Astide</span>
+    </div>
+    <div class="page-tag">06 / 08 · DeepSeek 迁移</div>
+  </div>
+
+  <div class="hero-text">
+    <div class="eyebrow">官方客户端聊天受限？老对话记录千万别丢</div>
+    <h1 class="headline">支持导入 <span class="accent">DeepSeek 官方</span><br>聊天数据，无缝接着聊！</h1>
+    <p class="subhead">在官方「导出数据」拿到下载链接或 .zip 包，整段对话历史一键无损搬进本地</p>
+  </div>
+
+  <div class="split-body">
+    <div class="features-col">
+      <div class="step-card">
+        <div class="step-head"><span class="step-num">STEP 1</span>URL 或本地 .zip 直接导入</div>
+        <div class="step-desc">无需电脑中转或折腾脚本！在官方 App / 网页端生成导出后，直接粘贴下载链接或选本地 .zip 包即可解析</div>
+      </div>
+      <div class="step-card">
+        <div class="step-head"><span class="step-num">STEP 2</span>分支树 / 思考链 / 图片全保留</div>
+        <div class="step-desc">完整解析官方 conversations.json 对话分支、&lt;THINK&gt; 深度思考过程与 WebP 图像附件，自动跳过重复会话</div>
+      </div>
+      <div class="step-card">
+        <div class="step-head"><span class="step-num green">STEP 3</span>接入自有 Key 本地接管续聊</div>
+        <div class="step-desc">导入后即变为微信列表独立会话，自带 DeepSeek V4.1 Flash（兼容 OpenAI 接口），顺着历史上下文继续开聊</div>
+      </div>
+      <div class="chip-row">
+        <span class="ds-chip">不限官方额度</span>
+        <span class="ds-chip">THINK 折叠还原</span>
+        <span class="ds-chip">防重增量导入</span>
+        <span class="ds-chip">全本地 SQLite</span>
+      </div>
+    </div>
+
+    <div class="phone-frame">
+      <img class="phone-screen" src="../screenshots/08_deepseek_import.png" alt="导入 DeepSeek 官方历史界面">
+      <div class="phone-float-note">
+        <div class="phone-float-title">导入后还能做什么？</div>
+        <div class="phone-float-text">✓ 按原上下文继续发消息 · ✓ 查看思考过程 · ✓ 二次导出为 SQLite / JSON / MD / HTML 永久归档</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>路径：我 → 导入 DeepSeek 官方历史（URL / ZIP）</span>
+    <span>无云端服务器留存 · 离线可查阅</span>
+  </div>
+</div>
+</body>
+</html>

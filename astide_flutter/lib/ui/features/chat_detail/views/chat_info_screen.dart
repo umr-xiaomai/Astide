@@ -7,6 +7,7 @@ import '../../../core/theme/wechat_theme.dart';
 import '../../../core/widgets/wechat_avatar.dart';
 import '../../../core/widgets/weui_widgets.dart';
 import '../../contacts/views/character_form_screen.dart';
+import '../../me/views/chat_export_screen.dart';
 
 /// WeChat-style "聊天信息" screen reachable via the `...` button in a chat room.
 class ChatInfoScreen extends StatefulWidget {
@@ -170,6 +171,20 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
           WeuiCellGroup(
             children: [
               WeuiCell(
+                title: '导出聊天记录',
+                subtitle: '导出为 SQLite、XML、JSON、TXT 等格式',
+                showArrow: true,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChatExportScreen(
+                        initialConversationIds: [_conversation.id],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              WeuiCell(
                 title: '清空聊天记录',
                 centerTitle: true,
                 titleColor: WeuiColors.red,
@@ -198,54 +213,10 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
   }
 
   Future<void> _renameConversation(AppController app) async {
-    final controller = TextEditingController(text: _conversation.title);
     final newName = await showDialog<String>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: WeuiColors.bg2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '修改会话名称',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: WeuiColors.bg1,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: TextField(
-                  controller: controller,
-                  autofocus: true,
-                  decoration: const InputDecoration(border: InputBorder.none),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('取消', style: TextStyle(color: WeuiColors.fg1)),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-                    child: const Text('保存', style: TextStyle(color: WeuiColors.link)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (ctx) => _RenameConversationDialog(initialTitle: _conversation.title),
     );
-    controller.dispose();
     if (newName == null || newName.isEmpty) return;
 
     final updated = _conversation.copyWith(title: newName);
@@ -254,5 +225,71 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
     if (mounted) {
       setState(() => _conversation = updated);
     }
+  }
+}
+
+class _RenameConversationDialog extends StatefulWidget {
+  const _RenameConversationDialog({required this.initialTitle});
+
+  final String initialTitle;
+
+  @override
+  State<_RenameConversationDialog> createState() => _RenameConversationDialogState();
+}
+
+class _RenameConversationDialogState extends State<_RenameConversationDialog> {
+  late final TextEditingController _ctrl = TextEditingController(text: widget.initialTitle);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: WeuiColors.bg2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '修改会话名称',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: WeuiColors.bg1,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: TextField(
+                controller: _ctrl,
+                autofocus: true,
+                decoration: const InputDecoration(border: InputBorder.none),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消', style: TextStyle(color: WeuiColors.fg1)),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(_ctrl.text.trim()),
+                  child: const Text('保存', style: TextStyle(color: WeuiColors.link)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

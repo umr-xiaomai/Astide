@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>P4 一句话AI捏人 - 星汐 Astide</title>
+<link rel="stylesheet" href="poster_theme.css">
+<style>
+  .canvas {
+    background: linear-gradient(155deg, #FFFDF8 0%, #F4F9F4 55%, #E7F4EB 100%);
+  }
+  .glow-1 {
+    width: 580px; height: 580px;
+    bottom: -140px; right: -120px;
+    background: rgba(250, 157, 59, 0.16);
+  }
+  .page-tag {
+    background: #FA9D3B;
+    color: #FFFFFF;
+  }
+  .eyebrow {
+    background: #FFF1E0;
+    color: #C46F0F;
+  }
+  .headline {
+    color: #161A17;
+  }
+  .subhead {
+    color: #4D564E;
+  }
+  .split-body {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 44px;
+    margin: 10px 0;
+  }
+  .features-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .phone-frame {
+    width: 492px;
+    height: 980px;
+    flex-shrink: 0;
+  }
+  .prompt-sample {
+    background: #FFFFFF;
+    border-radius: 26px;
+    padding: 26px 28px;
+    border: 1.5px dashed #07C160;
+    box-shadow: 0 14px 32px rgba(7, 193, 96, 0.08);
+  }
+  .prompt-label {
+    font-size: 22px;
+    font-weight: 800;
+    color: #07C160;
+    margin-bottom: 10px;
+  }
+  .prompt-text {
+    font-size: 25px;
+    font-weight: 600;
+    color: #1B241E;
+    line-height: 1.5;
+  }
+  .footer {
+    color: #4E5B52;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow glow-1"></div>
+
+  <div class="topbar">
+    <div class="brand-pill">
+      <img src="../logo/astide_logo.svg" alt="Astide Logo">
+      <span>星汐 Astide</span>
+    </div>
+    <div class="page-tag">04 / 08 · 角色定制</div>
+  </div>
+
+  <div class="hero-text">
+    <div class="eyebrow">置顶星汐 Astide + 无限自定义好友</div>
+    <h1 class="headline">写一句话，AI 帮你<br>自动填满整张人设表</h1>
+    <p class="subhead">支持一句话脑洞或粘贴超长 Prompt，自动解析并保留人设细节与口癖</p>
+  </div>
+
+  <div class="split-body">
+    <div class="features-col">
+      <div class="prompt-sample">
+        <div class="prompt-label">输入示例（一句话直出）</div>
+        <div class="prompt-text">“帮我捏一个在图书馆打工、说话温和但很护短的计算机视觉研二直系学姐林知夏”</div>
+      </div>
+      <div class="callout">
+        <div class="callout-title"><span class="callout-badge">AI</span>自动拆解全部表单字段</div>
+        <div class="callout-desc">姓名、昵称备注、年龄身份、性格特点、背景故事、口癖开场白一键生成，零手工枯燥填写</div>
+      </div>
+      <div class="callout">
+        <div class="callout-title"><span class="callout-badge">真</span>去 AI 化人类视角约束</div>
+        <div class="callout-desc">角色提示词强制以真实存在的人类口吻思考聊天，彻底告别“作为语言模型…”的出戏台词</div>
+      </div>
+    </div>
+    <div class="phone-frame">
+      <img class="phone-screen" src="../screenshots/04_character_creator.png" alt="一句话创建人物表单">
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>通讯录 · 置顶星汐 + 自定义角色</span>
+    <span>支持多角色独立模型覆盖</span>
+  </div>
+</div>
+</body>
+</html>

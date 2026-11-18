@@ -362,7 +362,7 @@ class _CharacterFormScreenState extends State<CharacterFormScreen> {
               WeuiFormRow(
                 label: '开场白',
                 controller: _openingLineCtrl,
-                hintText: '新建聊天时Ta发的第一句话（用 ||| 可拆成多条气泡）',
+                hintText: '新建聊天时Ta发的第一句话（每换行可拆成一条微信气泡）',
                 vertical: true,
                 minLines: 2,
                 maxLines: 4,

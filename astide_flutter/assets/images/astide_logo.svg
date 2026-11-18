@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="wechatGreen" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="512">
+      <stop offset="0%" stop-color="#5CE26B"/>
+      <stop offset="100%" stop-color="#07C160"/>
+    </linearGradient>
+    <clipPath id="iconClip">
+      <rect x="0" y="0" width="512" height="512" rx="112" ry="112"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#iconClip)">
+    <!-- WeChat signature vertical green gradient -->
+    <rect width="512" height="512" fill="url(#wechatGreen)"/>
+
+    <!-- Cute minimalist anime girl white silhouette (flowing hair, soft ahoge, side locks, rounded cheeks) -->
+    <path fill="#FFFFFF" d="
+      M 218 88
+      C 226 60, 258 56, 264 72
+      C 248 74, 242 82, 244 88
+      C 324 94, 378 148, 384 224
+      C 390 296, 376 350, 344 374
+      C 332 384, 316 374, 316 354
+      C 316 344, 318 334, 322 322
+      C 300 350, 268 366, 224 366
+      C 180 366, 148 350, 128 322
+      C 132 334, 134 344, 132 354
+      C 130 374, 114 384, 100 374
+      C 68 350, 56 296, 62 224
+      C 68 148, 124 94, 218 88
+      Z
+    "/>
+
+    <!-- Soft curved bangs parting & inner side-hair linework -->
+    <path fill="none" stroke="url(#wechatGreen)" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round" d="
+      M 118 220
+      C 136 184, 166 164, 190 166
+      Q 198 188 202 198
+      Q 214 176 220 160
+      C 230 158, 240 160, 246 168
+      Q 252 186 258 196
+      Q 268 176 274 166
+      C 298 168, 316 188, 330 220
+    "/>
+    <path fill="none" stroke="url(#wechatGreen)" stroke-width="8.5" stroke-linecap="round" d="
+      M 118 220 C 118 264, 122 298, 134 322
+    "/>
+    <path fill="none" stroke="url(#wechatGreen)" stroke-width="8.5" stroke-linecap="round" d="
+      M 330 220 C 330 250, 328 272, 324 290
+    "/>
+
+    <!-- Cutout details: star hairpin, expressive WeChat-spirit rounded eyes, smile & mini-bubble gap -->
+    <g fill="url(#wechatGreen)">
+      <!-- Four-point star hairpin (星汐) in upper-right hair -->
+      <path d="
+        M 308 118
+        Q 312 138 332 142
+        Q 312 146 308 166
+        Q 304 146 284 142
+        Q 304 138 308 118
+        Z
+      "/>
+      <!-- Friendly WeChat-style rounded eyes -->
+      <ellipse cx="180" cy="248" rx="18" ry="21"/>
+      <ellipse cx="268" cy="248" rx="18" ry="21"/>
+      <!-- Soft happy mouth -->
+      <path d="M 212 298 Q 224 310 236 298" fill="none" stroke="url(#wechatGreen)" stroke-width="8.5" stroke-linecap="round"/>
+
+      <!-- Seamless green gap carving behind the front-right WeChat mini bubble -->
+      <ellipse cx="364" cy="356" rx="110" ry="92"/>
+      <path d="M 418 418 L 448 466 L 378 436 Z"/>
+    </g>
+
+    <!-- Front overlapping mini WeChat speech bubble -->
+    <g fill="#FFFFFF">
+      <ellipse cx="364" cy="356" rx="94" ry="77"/>
+      <path d="M 408 408 L 434 452 L 376 422 Z"/>
+    </g>
+
+    <!-- Classic two green dots inside the speech bubble -->
+    <g fill="url(#wechatGreen)">
+      <circle cx="332" cy="352" r="14"/>
+      <circle cx="396" cy="352" r="14"/>
+    </g>
+  </g>
+</svg>

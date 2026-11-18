@@ -68,7 +68,7 @@ class CharacterProfile {
       buffer.writeln('\n对话方「$userNickname」的设定：${userPersona.trim()}');
     }
     buffer.writeln(
-      '\n【微信聊天回复格式要求】请像真实微信聊天一样用简短自然的口语分条发送，每条消息之间用 "|||" 分隔（例如：在干嘛呀|||刚下课回来|||好累哦），通常 1~3 条短句即可，避免长篇大论和 Markdown 标题格式。',
+      '\n【微信聊天说话方式】请完全像真人在微信上聊天那样说话：每次只自然发一条简短口语（通常一两句话即可），不要一次输出一大段文字或使用 Markdown 标题，也不要使用特殊分隔符。',
     );
     return buffer.toString().trim();
   }

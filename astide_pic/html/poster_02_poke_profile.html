@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>P2 拍一拍与对方主页 - 星汐 Astide</title>
+<link rel="stylesheet" href="poster_theme.css">
+<style>
+  .canvas {
+    background: linear-gradient(160deg, #FAFAFA 0%, #EFF4F1 55%, #E3EFE7 100%);
+  }
+  .glow-1 {
+    width: 580px; height: 580px;
+    top: -120px; left: -140px;
+    background: rgba(7, 193, 96, 0.16);
+  }
+  .page-tag {
+    background: #1B231E;
+    color: #FFFFFF;
+  }
+  .eyebrow {
+    background: #E4F7EC;
+    color: #068E47;
+  }
+  .headline {
+    font-size: 68px;
+    color: #141916;
+  }
+  .subhead {
+    color: #4F5B54;
+  }
+  .dual-phones {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    margin-top: 8px;
+  }
+  .phone-col {
+    width: 472px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+  .phone-frame {
+    width: 430px;
+    height: 820px;
+  }
+  .cap-pill {
+    padding: 12px 24px;
+    border-radius: 999px;
+    font-size: 24px;
+    font-weight: 800;
+    background: #FFFFFF;
+    color: #18201B;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+  .cap-pill.green {
+    background: #07C160;
+    color: #FFFFFF;
+    border-color: transparent;
+  }
+  .cards-row {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  .footer {
+    color: #546159;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow glow-1"></div>
+
+  <div class="topbar">
+    <div class="brand-pill">
+      <img src="../logo/astide_logo.svg" alt="Astide Logo">
+      <span>星汐 Astide</span>
+    </div>
+    <div class="page-tag">02 / 08 · 微信级交互</div>
+  </div>
+
+  <div class="hero-text">
+    <div class="eyebrow">告别机械长段回复与僵硬“|”分割符</div>
+    <h1 class="headline">点击头像进主页<br>双击轻震“拍一拍”</h1>
+    <p class="subhead">真微信细节拉满：短气泡通过多次请求一句句自然发出，拍一下还有概率把 Ta 拍醒</p>
+  </div>
+
+  <div class="dual-phones">
+    <div class="phone-col">
+      <div class="cap-pill green">双击头像 · 震动拍一拍</div>
+      <div class="phone-frame">
+        <img class="phone-screen" src="../screenshots/02_chat_detail_poke.png" alt="双击拍一拍互动">
+      </div>
+    </div>
+    <div class="phone-col">
+      <div class="cap-pill">单击头像 · 对方资料主页</div>
+      <div class="phone-frame">
+        <img class="phone-screen" src="../screenshots/03_character_profile.png" alt="点击头像进入对方主页">
+      </div>
+    </div>
+  </div>
+
+  <div class="cards-row">
+    <div class="callout">
+      <div class="callout-title"><span class="callout-badge">1</span>多次请求真连发</div>
+      <div class="callout-desc">放弃不稳定符号切割，改为真多轮续写请求，气泡按自然节奏逐条发出</div>
+    </div>
+    <div class="callout">
+      <div class="callout-title"><span class="callout-badge">2</span>概率回应 &amp; 回拍</div>
+      <div class="callout-desc">拍一拍轻震反馈 + 系统灰字提示，AI 按可调概率决定主动吐槽或回拍你</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>纯正 WeUI 设计规范</span>
+    <span>无冗余占位 · 丝滑流畅</span>
+  </div>
+</div>
+</body>
+</html>

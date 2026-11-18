@@ -62,68 +62,12 @@ class _MomentsScreenState extends State<MomentsScreen> {
     MomentPost post, {
     String replyTo = '',
   }) async {
-    final ctrl = TextEditingController();
     final submitted = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: WeuiColors.bg1,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 12,
-            right: 12,
-            top: 10,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: WeuiColors.bg2,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: replyTo.isEmpty ? '评论' : '回复 $replyTo:',
-                      hintStyle: const TextStyle(color: WeuiColors.fg2, fontSize: 15),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: 36,
-                child: Material(
-                  color: WeuiColors.brand,
-                  borderRadius: BorderRadius.circular(5),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(5),
-                    onTap: () => Navigator.of(ctx).pop(ctrl.text.trim()),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Center(
-                        child: Text(
-                          '发送',
-                          style: TextStyle(color: Colors.white, fontSize: 14.5),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (ctx) => _MomentCommentSheet(replyTo: replyTo),
     );
-    ctrl.dispose();
     if (submitted == null || submitted.isEmpty) return;
 
     final userComment = MomentComment(
@@ -868,6 +812,83 @@ class _ComposeMomentScreenState extends State<ComposeMomentScreen> {
                   ),
                 ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MomentCommentSheet extends StatefulWidget {
+  const _MomentCommentSheet({required this.replyTo});
+
+  final String replyTo;
+
+  @override
+  State<_MomentCommentSheet> createState() => _MomentCommentSheetState();
+}
+
+class _MomentCommentSheetState extends State<_MomentCommentSheet> {
+  final TextEditingController _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 12,
+        right: 12,
+        top: 10,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: WeuiColors.bg2,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: TextField(
+                controller: _ctrl,
+                autofocus: true,
+                onSubmitted: (val) => Navigator.of(context).pop(val.trim()),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: widget.replyTo.isEmpty ? '评论' : '回复 ${widget.replyTo}:',
+                  hintStyle: const TextStyle(color: WeuiColors.fg2, fontSize: 15),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 36,
+            child: Material(
+              color: WeuiColors.brand,
+              borderRadius: BorderRadius.circular(5),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(5),
+                onTap: () => Navigator.of(context).pop(_ctrl.text.trim()),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Center(
+                    child: Text(
+                      '发送',
+                      style: TextStyle(color: Colors.white, fontSize: 14.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

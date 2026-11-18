@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>P7 多格式本地导出 - 星汐 Astide</title>
+<link rel="stylesheet" href="poster_theme.css">
+<style>
+  .canvas {
+    background: linear-gradient(155deg, #F6FBF8 0%, #EBF5EF 55%, #E0EFE6 100%);
+  }
+  .glow-1 {
+    width: 600px; height: 600px;
+    bottom: -140px; left: -120px;
+    background: rgba(7, 193, 96, 0.18);
+  }
+  .page-tag {
+    background: #141916;
+    color: #FFFFFF;
+  }
+  .eyebrow {
+    background: rgba(7, 193, 96, 0.14);
+    color: #058A45;
+  }
+  .headline {
+    color: #131A16;
+  }
+  .subhead {
+    color: #46544B;
+  }
+  .split-body {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 44px;
+    margin: 10px 0;
+  }
+  .features-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .format-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .fmt-card {
+    background: #FFFFFF;
+    border-radius: 22px;
+    padding: 20px 22px;
+    border: 1px solid rgba(7, 193, 96, 0.18);
+    box-shadow: 0 12px 26px rgba(14, 42, 26, 0.06);
+  }
+  .fmt-ext {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 8px;
+    background: #E9F9F0;
+    color: #07A652;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .fmt-desc {
+    font-size: 22px;
+    color: #455249;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .phone-frame {
+    width: 494px;
+    height: 980px;
+    flex-shrink: 0;
+  }
+  .footer {
+    color: #46554C;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow glow-1"></div>
+
+  <div class="topbar">
+    <div class="brand-pill">
+      <img src="../logo/astide_logo.svg" alt="Astide Logo">
+      <span>星汐 Astide</span>
+    </div>
+    <div class="page-tag">07 / 08 · 隐私与备份</div>
+  </div>
+
+  <div class="hero-text">
+    <div class="eyebrow">数据完全属于你自己 · 免登录无云端留存</div>
+    <h1 class="headline">6 种标准格式自由导出<br>聊天记忆随时带走</h1>
+    <p class="subhead">支持单会话或全部批量导出，自动剔除 API Key，归档 / 迁移 / 笔记整理全搞定</p>
+  </div>
+
+  <div class="split-body">
+    <div class="features-col">
+      <div class="format-grid">
+        <div class="fmt-card">
+          <div class="fmt-ext">.SQLITE</div>
+          <div class="fmt-desc">标准独立数据库表结构，安全无 Key</div>
+        </div>
+        <div class="fmt-card">
+          <div class="fmt-ext">.XML</div>
+          <div class="fmt-desc">规范节点树归档，工具二次解析</div>
+        </div>
+        <div class="fmt-card">
+          <div class="fmt-ext">.JSON</div>
+          <div class="fmt-desc">完整消息与深度思考 JSON</div>
+        </div>
+        <div class="fmt-card">
+          <div class="fmt-ext">.TXT</div>
+          <div class="fmt-desc">按日期分组的高可读文本</div>
+        </div>
+        <div class="fmt-card">
+          <div class="fmt-ext">.MD</div>
+          <div class="fmt-desc">直入 Obsidian / Notion 笔记</div>
+        </div>
+        <div class="fmt-card">
+          <div class="fmt-ext">.HTML</div>
+          <div class="fmt-desc">高仿微信气泡离线网页直阅</div>
+        </div>
+      </div>
+      <div class="callout">
+        <div class="callout-title"><span class="callout-badge">稳</span>隐私安全与可控性</div>
+        <div class="callout-desc">所有会话与 Key 仅留在本机 SQLite，导出的文件支持系统目录直存、内建预览及第三方打开</div>
+      </div>
+    </div>
+    <div class="phone-frame">
+      <img class="phone-screen" src="../screenshots/06_export_chat.png" alt="本地会话导出多格式界面">
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>GitHub · umr-xiaomai/Astide</span>
+    <span>GNU AGPL-3.0 开源协议</span>
+  </div>
+</div>
+</body>
+</html>

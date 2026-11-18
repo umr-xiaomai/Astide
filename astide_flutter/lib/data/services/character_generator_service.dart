@@ -49,7 +49,7 @@ class CharacterGeneratorService {
   "personality": "性格特点总结",
   "backstory": "背景设定与日常状态",
   "speech_style": "说话风格、口癖与对用户的称呼",
-  "opening_line": "初次见面的微信开场白（可用 ||| 分成1~2条自然短句）",
+  "opening_line": "初次见面的微信开场白（简短自然的一两句话，换行可表示连发两句）",
   "segmented_reply": true,
   "avatar_color_index": 0,
   "system_prompt": "完整保留用户原提示词里的所有细节、规则、边界和示例，并整理成可直接用于对话的系统人设指令"

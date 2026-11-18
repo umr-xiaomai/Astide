@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>P5 概率主动发消息与常驻 - 星汐 Astide</title>
+<link rel="stylesheet" href="poster_theme.css">
+<style>
+  .canvas {
+    background: linear-gradient(155deg, #F3FBF7 0%, #EAF6F1 55%, #DFF1E8 100%);
+  }
+  .glow-1 {
+    width: 600px; height: 600px;
+    top: -120px; left: -120px;
+    background: rgba(7, 193, 96, 0.16);
+  }
+  .page-tag {
+    background: #07C160;
+    color: #FFFFFF;
+  }
+  .eyebrow {
+    background: rgba(7, 193, 96, 0.14);
+    color: #058E47;
+  }
+  .headline {
+    color: #141923;
+  }
+  .subhead {
+    color: #485450;
+  }
+  .split-body {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 44px;
+    margin: 10px 0;
+  }
+  .phone-frame {
+    width: 494px;
+    height: 980px;
+    flex-shrink: 0;
+  }
+  .features-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .stat-box {
+    background: #FFFFFF;
+    border-radius: 24px;
+    padding: 22px 24px;
+    border: 1px solid rgba(7, 193, 96, 0.18);
+    box-shadow: 0 14px 30px rgba(14, 48, 28, 0.07);
+  }
+  .stat-num {
+    font-size: 48px;
+    font-weight: 900;
+    color: #07C160;
+    line-height: 1.1;
+  }
+  .stat-num.slate {
+    color: #1B2420;
+  }
+  .stat-lbl {
+    margin-top: 6px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #4A5650;
+  }
+  .footer {
+    color: #46564D;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow glow-1"></div>
+
+  <div class="topbar">
+    <div class="brand-pill">
+      <img src="../logo/astide_logo.svg" alt="Astide Logo">
+      <span>星汐 Astide</span>
+    </div>
+    <div class="page-tag">05 / 08 · 概率自主聊天</div>
+  </div>
+
+  <div class="hero-text">
+    <div class="eyebrow">不再是定时机械闹钟 · 真人感主动联系</div>
+    <h1 class="headline">按概率主动找你说话<br>把 Ta 真正养在手机里</h1>
+    <p class="subhead">结合当前时段、沉默时长与设定触发概率随机决定是否冒泡，告别硬性轮询</p>
+  </div>
+
+  <div class="split-body">
+    <div class="phone-frame">
+      <img class="phone-screen" src="../screenshots/07_autonomous_settings.png" alt="AI 自主发消息与常驻设置">
+    </div>
+    <div class="features-col">
+      <div class="stat-row">
+        <div class="stat-box">
+          <div class="stat-num">35%</div>
+          <div class="stat-lbl">巡检触发概率自由调</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num slate">55%</div>
+          <div class="stat-lbl">拍一拍主动回话概率</div>
+        </div>
+      </div>
+      <div class="callout">
+        <div class="callout-title"><span class="callout-badge">护</span>Android 前台守护 + 弹通知</div>
+        <div class="callout-desc">开启常驻守护与省电白名单引导减少杀后台，触发后弹出微信风格消息提醒</div>
+      </div>
+      <div class="callout">
+        <div class="callout-title"><span class="callout-badge">眠</span>夜间 00:00–07:00 免打扰</div>
+        <div class="callout-desc">深夜自动静音不半夜惊扰，每次巡检间隔 5–120 分钟可配，还会静默压缩长对话摘要</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>DeepSeek V4.1 Flash 预设 · 兼容 OpenAI 格式</span>
+    <span>支持多模态识图 &amp; 深度思考折叠</span>
+  </div>
+</div>
+</body>
+</html>

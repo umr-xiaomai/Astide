@@ -4,6 +4,7 @@ import '../../../../app_scope.dart';
 import '../../../../data/repositories/chat_repository.dart';
 import '../../../core/theme/wechat_theme.dart';
 import '../../../core/widgets/weui_widgets.dart';
+import 'chat_export_screen.dart';
 
 /// Displays local SQLite & attachment disk usage with safe cleanup options.
 class StorageManagementScreen extends StatefulWidget {
@@ -81,6 +82,23 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
               WeuiCell(
                 title: '本地媒体与附件缓存',
                 trailingText: _formatBytes(_mediaBytes),
+              ),
+            ],
+          ),
+          WeuiCellGroup(
+            title: '数据备份与导出',
+            insetForm: true,
+            children: [
+              WeuiCell(
+                title: '导出本地会话记录',
+                subtitle: '支持 SQLite、XML、JSON、TXT、Markdown、HTML',
+                trailingText: '导出',
+                showArrow: true,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ChatExportScreen()),
+                  );
+                },
               ),
             ],
           ),

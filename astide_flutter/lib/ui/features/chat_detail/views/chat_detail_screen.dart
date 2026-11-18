@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -15,7 +16,9 @@ import '../../../core/widgets/bubble_tail_painter.dart';
 import '../../../core/widgets/wechat_avatar.dart';
 import '../../../core/widgets/weui_widgets.dart';
 import '../../contacts/views/character_form_screen.dart';
+import '../../contacts/views/character_profile_screen.dart';
 import '../../me/views/api_settings_screen.dart';
+import '../../me/views/user_profile_edit_screen.dart';
 import '../view_models/chat_detail_view_model.dart';
 import 'chat_info_screen.dart';
 import 'file_preview_screen.dart';
@@ -384,9 +387,42 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return listView;
   }
 
+  Future<void> _openOpponentProfile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CharacterProfileScreen(
+          character: _viewModel.character,
+          conversation: _viewModel.conversation,
+          fromChat: true,
+        ),
+      ),
+    );
+    await _viewModel.reloadMeta();
+  }
+
   Widget _buildMessageRow(BuildContext context, AppController app, ChatMessage msg) {
+    if (msg.role == MessageRole.system) {
+      return GestureDetector(
+        onLongPress: () => _showMessageActions(context, msg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+          child: Center(
+            child: Text(
+              msg.content,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: WeuiColors.textTimestamp,
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final isUser = msg.isUser;
-    final avatar = WechatAvatar(
+    final avatarWidget = WechatAvatar(
       name: isUser ? app.settings.userNickname : _viewModel.conversation.title,
       imagePath: isUser
           ? app.settings.userAvatarPath
@@ -399,6 +435,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       size: 40,
       radius: 5,
     );
+
+    final avatar = isUser
+        ? GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const UserProfileEditScreen()),
+              );
+            },
+            child: avatarWidget,
+          )
+        : _ChatInteractiveAvatar(
+            onTap: _openOpponentProfile,
+            onDoubleTap: () {
+              unawaited(app.autonomousService.triggerPokeVibration());
+              unawaited(_viewModel.pokeOpponent());
+            },
+            child: avatarWidget,
+          );
 
     final contentColumn = Column(
       crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -1095,6 +1149,63 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Interactive opponent avatar supporting single-tap profile view and double-tap haptic poke shake.
+class _ChatInteractiveAvatar extends StatefulWidget {
+  const _ChatInteractiveAvatar({
+    required this.onTap,
+    required this.onDoubleTap,
+    required this.child,
+  });
+
+  final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
+  final Widget child;
+
+  @override
+  State<_ChatInteractiveAvatar> createState() => _ChatInteractiveAvatarState();
+}
+
+class _ChatInteractiveAvatarState extends State<_ChatInteractiveAvatar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pokeCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
+
+  late final Animation<double> _shakeOffset = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 0.0, end: -4.0), weight: 25),
+    TweenSequenceItem(tween: Tween(begin: -4.0, end: 4.5), weight: 30),
+    TweenSequenceItem(tween: Tween(begin: 4.5, end: -2.0), weight: 25),
+    TweenSequenceItem(tween: Tween(begin: -2.0, end: 0.0), weight: 20),
+  ]).animate(CurvedAnimation(parent: _pokeCtrl, curve: Curves.easeOut));
+
+  @override
+  void dispose() {
+    _pokeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onDoubleTap: () {
+        _pokeCtrl.forward(from: 0.0);
+        widget.onDoubleTap();
+      },
+      child: AnimatedBuilder(
+        animation: _shakeOffset,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(_shakeOffset.value, 0),
+          child: child,
+        ),
+        child: widget.child,
       ),
     );
   }

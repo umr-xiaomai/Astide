@@ -178,6 +178,8 @@ class MomentsAiService {
         }
       } catch (_) {}
 
+      content = content.replaceAll('|||', '').trim();
+      selfComment = selfComment.replaceAll('|||', '').trim();
       if (content.isEmpty || content.toUpperCase().contains('[SKIP]')) return null;
 
       final attachedImages = <String>[];
@@ -331,7 +333,7 @@ class MomentsAiService {
             role: MessageRole.user,
             content: '你在朋友圈发了一条动态：「${post.content}」。'
                 '现在「${settings.userNickname}」评论了你：「${userComment.content}」。'
-                '请以你自己的微信好友身份简短自然地回复他一条朋友圈评论（直接输出回复文字，不要带引号或 |||，35字以内）。',
+                '请以你自己的微信好友身份简短自然地回复他一条朋友圈评论（直接输出回复文字，不要带引号，35字以内）。',
             createdAt: now,
           ),
         ],
@@ -341,7 +343,7 @@ class MomentsAiService {
         buf.write(delta.contentDelta);
       }
 
-      final text = buf.toString().replaceAll('|||', ' ').trim();
+      final text = buf.toString().trim();
       if (text.isEmpty) return;
       await _momentsRepo.addComment(MomentComment(
         id: _uuid.v4(),

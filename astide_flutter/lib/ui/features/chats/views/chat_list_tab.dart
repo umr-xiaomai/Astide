@@ -9,6 +9,7 @@ import '../../../core/widgets/weui_widgets.dart';
 import '../../chat_detail/views/chat_detail_screen.dart';
 import '../../contacts/views/character_form_screen.dart';
 import '../../me/views/api_settings_screen.dart';
+import '../../me/views/chat_export_screen.dart';
 import '../../me/views/deepseek_import_screen.dart';
 import 'global_search_screen.dart';
 
@@ -34,21 +35,7 @@ class _ChatListTabState extends State<ChatListTab> {
       backgroundColor: WeuiColors.bg0,
       appBar: AppBar(
         backgroundColor: WeuiColors.bg0,
-        leadingWidth: 56,
-        leading: GestureDetector(
-          onTap: () => _showQuickStatusSheet(context, app),
-          behavior: HitTestBehavior.opaque,
-          child: const Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _StatusDot(),
-                SizedBox(width: 4),
-                _StatusDot(),
-              ],
-            ),
-          ),
-        ),
+        automaticallyImplyLeading: false,
         title: Text(titleText),
         actions: [
           IconButton(
@@ -95,6 +82,16 @@ class _ChatListTabState extends State<ChatListTab> {
                     Icon(Icons.download_for_offline_outlined, color: Colors.white, size: 20),
                     SizedBox(width: 12),
                     Text('导入 DeepSeek 历史', style: TextStyle(color: Colors.white, fontSize: 15.5)),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'export_chats',
+                child: Row(
+                  children: [
+                    Icon(Icons.upload_file_outlined, color: Colors.white, size: 20),
+                    SizedBox(width: 12),
+                    Text('导出本地会话', style: TextStyle(color: Colors.white, fontSize: 15.5)),
                   ],
                 ),
               ),
@@ -248,6 +245,10 @@ class _ChatListTabState extends State<ChatListTab> {
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const DeepSeekImportScreen()),
         );
+      case 'export_chats':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ChatExportScreen()),
+        );
       case 'api_settings':
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const ApiSettingsScreen()),
@@ -299,67 +300,6 @@ class _ChatListTabState extends State<ChatListTab> {
     if (ok) {
       await app.deleteConversation(conv.id);
     }
-  }
-
-  void _showQuickStatusSheet(BuildContext context, AppController app) {
-    final profile = app.activeApiProfile;
-    final modelText = profile == null || !profile.isConfigured
-        ? '未配置 API Key'
-        : '${profile.name} (${profile.model})';
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: WeuiColors.bg2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '星汐 Astide 运行状态',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: WeuiColors.fg0),
-              ),
-              const SizedBox(height: 12),
-              Text('当前模型：$modelText', style: const TextStyle(fontSize: 14.5, color: WeuiColors.fg1)),
-              const SizedBox(height: 6),
-              Text(
-                '自主发消息：${app.settings.autonomousEnabled ? "已开启" : "未开启"} · 常驻后台：${app.settings.keepAliveEnabled ? "运行中" : "未开启"}',
-                style: const TextStyle(fontSize: 14.5, color: WeuiColors.fg1),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '本地会话：${app.conversations.length} 个 · 人物：${app.characters.length} 位',
-                style: const TextStyle(fontSize: 14.5, color: WeuiColors.fg1),
-              ),
-              const SizedBox(height: 16),
-              WeuiButton(
-                label: '我知道了',
-                onPressed: () => Navigator.of(ctx).pop(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusDot extends StatelessWidget {
-  const _StatusDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: const BoxDecoration(
-        color: WeuiColors.textPrimary,
-        shape: BoxShape.circle,
-      ),
-    );
   }
 }
 

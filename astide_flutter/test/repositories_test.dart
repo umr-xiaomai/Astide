@@ -37,16 +37,26 @@ void main() {
     test('defaults to human-persona Astide prompt and persists autonomous toggles', () async {
       final settings = await settingsRepo.loadSettings();
       expect(settings.autonomousEnabled, isFalse);
+      expect(settings.autonomousProbability, closeTo(0.35, 0.001));
+      expect(settings.pokeReplyProbability, closeTo(0.55, 0.001));
       expect(settings.defaultAssistantPrompt, contains('星汐'));
       expect(settings.defaultAssistantPrompt, contains('Astide'));
       expect(settings.defaultAssistantPrompt, contains('真实存在的人类'));
+      expect(settings.defaultAssistantPrompt, isNot(contains('|||')));
 
       await settingsRepo.saveSettings(
-        settings.copyWith(autonomousEnabled: true, keepAliveEnabled: true),
+        settings.copyWith(
+          autonomousEnabled: true,
+          keepAliveEnabled: true,
+          autonomousProbability: 0.75,
+          pokeReplyProbability: 0.80,
+        ),
       );
       final reloaded = await settingsRepo.loadSettings();
       expect(reloaded.autonomousEnabled, isTrue);
       expect(reloaded.keepAliveEnabled, isTrue);
+      expect(reloaded.autonomousProbability, closeTo(0.75, 0.001));
+      expect(reloaded.pokeReplyProbability, closeTo(0.80, 0.001));
     });
 
     test('seeds default DeepSeek V4.1 Flash profile and switches active profile', () async {
@@ -99,7 +109,8 @@ void main() {
       final prompt = loaded!.buildEffectiveSystemPrompt(userNickname: '小埋');
       expect(prompt, contains('真实的人类'));
       expect(prompt, contains('林知夏'));
-      expect(prompt, contains('|||'));
+      expect(prompt, contains('每次只自然发一条简短口语'));
+      expect(prompt, isNot(contains('|||')));
     });
   });
 

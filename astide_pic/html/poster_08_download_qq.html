@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>P8 加QQ群获取 - 星汐 Astide</title>
+<link rel="stylesheet" href="poster_theme.css">
+<style>
+  .canvas {
+    background: linear-gradient(155deg, #F1FAF4 0%, #E4F5EA 55%, #D6EFE0 100%);
+  }
+  .glow-1 {
+    width: 640px; height: 640px;
+    top: -140px; right: -140px;
+    background: rgba(7, 193, 96, 0.22);
+  }
+  .glow-2 {
+    width: 520px; height: 520px;
+    bottom: -140px; left: -120px;
+    background: rgba(77, 107, 254, 0.12);
+  }
+  .page-tag {
+    background: #07C160;
+    color: #FFFFFF;
+    box-shadow: 0 10px 24px rgba(7, 193, 96, 0.26);
+  }
+  .eyebrow {
+    background: rgba(7, 193, 96, 0.14);
+    color: #058E47;
+  }
+  .headline {
+    color: #111814;
+  }
+  .headline .accent {
+    color: #07C160;
+  }
+  .subhead {
+    color: #3F5046;
+  }
+  .split-body {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: stretch;
+    gap: 42px;
+    margin: 12px 0;
+  }
+  .qr-showcase {
+    width: 490px;
+    flex-shrink: 0;
+    background: #FFFFFF;
+    border-radius: 40px;
+    padding: 24px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    border: 1.5px solid rgba(7, 193, 96, 0.24);
+    box-shadow: 0 30px 64px rgba(10, 40, 22, 0.16);
+  }
+  .qr-img-wrap {
+    width: 100%;
+    height: 740px;
+    border-radius: 26px;
+    overflow: hidden;
+    background: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qr-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .qq-number-bar {
+    width: 100%;
+    margin-top: 16px;
+    padding: 18px 22px;
+    border-radius: 20px;
+    background: #F1FAF4;
+    border: 1px solid rgba(7, 193, 96, 0.24);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .qq-label {
+    font-size: 22px;
+    font-weight: 700;
+    color: #068944;
+  }
+  .qq-code {
+    font-size: 32px;
+    font-weight: 900;
+    color: #111814;
+    letter-spacing: 0.5px;
+  }
+  .info-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 22px;
+  }
+  .app-identity {
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 28px;
+    padding: 26px 28px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border: 1px solid rgba(7, 193, 96, 0.2);
+    box-shadow: 0 16px 36px rgba(14, 40, 25, 0.08);
+  }
+  .app-identity img {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+    flex-shrink: 0;
+  }
+  .app-identity h3 {
+    font-size: 34px;
+    font-weight: 900;
+    color: #111814;
+  }
+  .app-identity p {
+    margin-top: 6px;
+    font-size: 23px;
+    font-weight: 600;
+    color: #4D5A52;
+  }
+  .footer {
+    color: #425348;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <div class="topbar">
+    <div class="brand-pill">
+      <img src="../logo/astide_logo.svg" alt="Astide Logo">
+      <span>星汐 Astide</span>
+    </div>
+    <div class="page-tag">08 / 08 · 获取与进群</div>
+  </div>
+
+  <div class="hero-text">
+    <div class="eyebrow">免费开源项目 · Android 安装包群内直领</div>
+    <h1 class="headline">加入 <span class="accent">QQ 交流群</span> 获取<br>与星汐开启微信式伴聊</h1>
+    <p class="subhead">群文件长期提供最新 APK 安装包，支持 DeepSeek 历史迁移指引、功能许愿与 Bug 反馈</p>
+  </div>
+
+  <div class="split-body">
+    <div class="qr-showcase">
+      <div class="qr-img-wrap">
+        <img src="../screenshots/09_qq_group_qr.jpg" alt="星汐Astide QQ交流群二维码">
+      </div>
+      <div class="qq-number-bar">
+        <span class="qq-label">QQ 群号</span>
+        <span class="qq-code">1103072298</span>
+      </div>
+    </div>
+
+    <div class="info-col">
+      <div class="app-identity">
+        <img src="../logo/astide_logo.svg" alt="星汐 App 图标">
+        <div>
+          <h3>星汐 Astide</h3>
+          <p>纯本地 AI 伴聊 · WeUI · AGPL-3.0</p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title"><span class="callout-badge">1</span>进群领安装包</div>
+        <div class="callout-desc">手机 QQ 扫码或直接搜群号 <strong style="color:#068944;">1103072298</strong>，进群即可在群文件获取最新 Android 安装包</div>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title"><span class="callout-badge">2</span>填上 Key 立即开聊</div>
+        <div class="callout-desc">免注册免登录，内置 DeepSeek V4.1 Flash（兼容 OpenAI 接口），支持导入官方历史记录</div>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title"><span class="callout-badge">3</span>一起共创更多微信细节</div>
+        <div class="callout-desc">表情包斗图、语音消息条、纪念日推送… 欢迎进群讨论提意见，GitHub 搜索 <span style="white-space:nowrap;">umr-xiaomai/Astide</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>官方 QQ 群：1103072298</span>
+    <span>数据全本地 SQLite · 源码可审计</span>
+  </div>
+</div>
+</body>
+</html>

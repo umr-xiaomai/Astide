@@ -7,6 +7,7 @@ import 'data/repositories/moments_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'data/services/autonomous_service.dart';
 import 'data/services/character_generator_service.dart';
+import 'data/services/chat_export_service.dart';
 import 'data/services/context_compaction_service.dart';
 import 'data/services/database_service.dart';
 import 'data/services/deepseek_import_service.dart';
@@ -34,6 +35,7 @@ class AppController extends ChangeNotifier {
     MomentsRepository? momentsRepository,
     AutonomousService? autonomousService,
     CharacterGeneratorService? characterGeneratorService,
+    ChatExportService? chatExportService,
     ContextCompactionService? contextCompactionService,
     MomentsAiService? momentsAiService,
   })  : momentsRepository = momentsRepository ?? MomentsRepository(databaseService: databaseService),
@@ -44,6 +46,8 @@ class AppController extends ChangeNotifier {
             ),
         characterGeneratorService = characterGeneratorService ??
             CharacterGeneratorService(openAiChatService: openAiChatService),
+        chatExportService = chatExportService ??
+            ChatExportService(sqliteFactoryOverride: databaseService.factoryOverride),
         momentsAiService = momentsAiService ??
             MomentsAiService(
               openAiChatService: openAiChatService,
@@ -128,6 +132,7 @@ class AppController extends ChangeNotifier {
   final MomentsAiService momentsAiService;
   final AutonomousService autonomousService;
   final CharacterGeneratorService characterGeneratorService;
+  final ChatExportService chatExportService;
 
   final Uuid _uuid = const Uuid();
 
@@ -370,6 +375,23 @@ class AppController extends ChangeNotifier {
   Future<void> deleteConversation(String id) async {
     await chatRepository.deleteConversation(id);
     await reloadConversations();
+  }
+
+  /// Exports selected (or all when [conversationIds] is null) conversations into [format].
+  Future<ChatExportArtifact> exportConversations({
+    required ChatExportFormat format,
+    List<String>? conversationIds,
+    bool includeReasoning = true,
+  }) async {
+    final bundles = await chatRepository.loadExportBundles(
+      conversationIds: conversationIds,
+    );
+    return chatExportService.buildExport(
+      format: format,
+      bundles: bundles,
+      settings: _settings,
+      includeReasoning: includeReasoning,
+    );
   }
 
   String newId() => _uuid.v4();

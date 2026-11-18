@@ -15,12 +15,16 @@ class AutonomousSettingsScreen extends StatefulWidget {
 class _AutonomousSettingsScreenState extends State<AutonomousSettingsScreen> {
   bool _testing = false;
 
-  static const List<int> _intervals = [15, 30, 60, 120];
+  static const List<int> _intervals = [5, 15, 30, 60, 120];
+  static const List<double> _autonomousProbabilities = [0.15, 0.35, 0.50, 0.75, 1.0];
+  static const List<double> _pokeProbabilities = [0.0, 0.30, 0.55, 0.80, 1.0];
 
   String _formatInterval(int minutes) {
     if (minutes < 60) return '每 $minutes 分钟';
     return '每 ${minutes ~/ 60} 小时';
   }
+
+  String _formatProbability(double p) => '${(p * 100).round()}%';
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +45,7 @@ class _AutonomousSettingsScreenState extends State<AutonomousSettingsScreen> {
         children: [
           WeuiCellGroup(
             title: '自主行动开关',
-            tips: '开启后，AI 会根据当前时间（早午晚、深夜、周末）与聊天间隔，自主判断是否要主动发 1~3 条微信消息给你。',
+            tips: '开启后，AI 会按设定频率与触发概率，结合当前时间与聊天间隔随机判断是否主动给你发 1~3 条微信消息；拍一拍对方后也会按概率决定是否回应。',
             insetForm: true,
             children: [
               WeuiCell(
@@ -62,6 +66,20 @@ class _AutonomousSettingsScreenState extends State<AutonomousSettingsScreen> {
                 trailingText: _formatInterval(s.autonomousIntervalMinutes),
                 showArrow: true,
                 onTap: () => _pickInterval(context, app),
+              ),
+              WeuiCell(
+                title: '每次检查主动触发概率',
+                subtitle: '避免机械刷屏，仅按一定概率主动开口',
+                trailingText: _formatProbability(s.autonomousProbability),
+                showArrow: true,
+                onTap: () => _pickAutonomousProbability(context, app),
+              ),
+              WeuiCell(
+                title: '被“拍一拍”后 AI 回复概率',
+                subtitle: '双击对方头像拍一拍后，对方有一定概率主动回应你',
+                trailingText: _formatProbability(s.pokeReplyProbability),
+                showArrow: true,
+                onTap: () => _pickPokeProbability(context, app),
               ),
               WeuiCell(
                 title: '夜间免打扰 (00:00 - 07:00)',
@@ -142,6 +160,44 @@ class _AutonomousSettingsScreenState extends State<AutonomousSettingsScreen> {
             label: _formatInterval(min),
             onTap: () => app.updateSettings(
               app.settings.copyWith(autonomousIntervalMinutes: min),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _pickAutonomousProbability(BuildContext context, AppController app) {
+    WeuiActionSheet.show(
+      context,
+      title: '每次自主巡检主动发消息概率',
+      actions: [
+        for (final prob in _autonomousProbabilities)
+          WeuiSheetAction(
+            label: prob == 0.35
+                ? '${_formatProbability(prob)}（推荐）'
+                : _formatProbability(prob),
+            onTap: () => app.updateSettings(
+              app.settings.copyWith(autonomousProbability: prob),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _pickPokeProbability(BuildContext context, AppController app) {
+    WeuiActionSheet.show(
+      context,
+      title: '双击头像“拍一拍”后 AI 主动回应概率',
+      actions: [
+        for (final prob in _pokeProbabilities)
+          WeuiSheetAction(
+            label: prob == 0.0
+                ? '0%（仅拍一拍提示）'
+                : (prob == 0.55
+                    ? '${_formatProbability(prob)}（推荐）'
+                    : _formatProbability(prob)),
+            onTap: () => app.updateSettings(
+              app.settings.copyWith(pokeReplyProbability: prob),
             ),
           ),
       ],

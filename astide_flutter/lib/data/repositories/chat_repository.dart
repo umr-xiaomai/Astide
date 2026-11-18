@@ -40,6 +40,19 @@ class StorageStats {
   final int attachmentCount;
 }
 
+/// Complete snapshot of one conversation, optional linked character, and hydrated messages.
+class ConversationExportBundle {
+  const ConversationExportBundle({
+    required this.conversation,
+    this.character,
+    required this.messages,
+  });
+
+  final Conversation conversation;
+  final CharacterProfile? character;
+  final List<ChatMessage> messages;
+}
+
 /// Persists conversations, messages, and attachments in local SQLite.
 class ChatRepository {
   ChatRepository({
@@ -177,7 +190,7 @@ class ChatRepository {
     final now = DateTime.now();
     final convId = _uuid.v4();
     final parts = openingLine
-        .split('|||')
+        .split(RegExp(r'\r?\n|\|\|\|'))
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
@@ -362,16 +375,21 @@ class ChatRepository {
     if (msgRows.isEmpty) return [];
 
     final msgIds = msgRows.map((r) => r['id'] as String).toList();
-    final placeholders = List.filled(msgIds.length, '?').join(',');
-    final attRows = await db.query(
-      'attachments',
-      where: 'message_id IN ($placeholders)',
-      whereArgs: msgIds,
-    );
     final byMsg = <String, List<ChatAttachment>>{};
-    for (final row in attRows) {
-      final att = ChatAttachment.fromMap(row);
-      byMsg.putIfAbsent(att.messageId, () => []).add(att);
+    const chunkSize = 400;
+    for (var start = 0; start < msgIds.length; start += chunkSize) {
+      final end = (start + chunkSize) > msgIds.length ? msgIds.length : start + chunkSize;
+      final chunk = msgIds.sublist(start, end);
+      final placeholders = List.filled(chunk.length, '?').join(',');
+      final attRows = await db.query(
+        'attachments',
+        where: 'message_id IN ($placeholders)',
+        whereArgs: chunk,
+      );
+      for (final row in attRows) {
+        final att = ChatAttachment.fromMap(row);
+        byMsg.putIfAbsent(att.messageId, () => []).add(att);
+      }
     }
 
     return msgRows
@@ -624,5 +642,64 @@ class ChatRepository {
       where: 'source_type = ?',
       whereArgs: [ConversationSourceType.deepseekImport.value],
     );
+  }
+
+  /// Loads complete conversation snapshots (including linked characters and hydrated messages) for export.
+  Future<List<ConversationExportBundle>> loadExportBundles({
+    List<String>? conversationIds,
+  }) async {
+    final db = await _dbService.database;
+    final List<Map<String, Object?>> convRows;
+    if (conversationIds == null) {
+      convRows = await db.query(
+        'conversations',
+        orderBy: 'is_pinned DESC, last_message_at DESC',
+      );
+    } else if (conversationIds.isEmpty) {
+      return const [];
+    } else {
+      final placeholders = List.filled(conversationIds.length, '?').join(',');
+      convRows = await db.query(
+        'conversations',
+        where: 'id IN ($placeholders)',
+        whereArgs: conversationIds,
+        orderBy: 'is_pinned DESC, last_message_at DESC',
+      );
+    }
+
+    final conversations = convRows.map(Conversation.fromMap).toList();
+    final charIds = conversations
+        .map((c) => c.characterId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final charMap = <String, CharacterProfile>{};
+    if (charIds.isNotEmpty) {
+      final placeholders = List.filled(charIds.length, '?').join(',');
+      final charRows = await db.query(
+        'characters',
+        where: 'id IN ($placeholders)',
+        whereArgs: charIds,
+      );
+      for (final row in charRows) {
+        final char = CharacterProfile.fromMap(row);
+        charMap[char.id] = char;
+      }
+    }
+
+    final bundles = <ConversationExportBundle>[];
+    for (final conv in conversations) {
+      final messages = await listMessages(conv.id);
+      bundles.add(
+        ConversationExportBundle(
+          conversation: conv,
+          character: conv.characterId != null ? charMap[conv.characterId!] : null,
+          messages: messages,
+        ),
+      );
+    }
+    return bundles;
   }
 }

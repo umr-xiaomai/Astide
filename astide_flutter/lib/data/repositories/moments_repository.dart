@@ -28,6 +28,9 @@ class MomentsRepository {
       {'author_avatar_path': 'asset:assets/images/astide_avatar.jpg'},
       where: "author_id = 'astide_core' AND (author_avatar_path IS NULL OR author_avatar_path = '')",
     );
+    await db.rawUpdate(
+      "UPDATE moments SET content = REPLACE(content, '|||', '') WHERE content LIKE '%|||%'",
+    );
 
     final count = Sqflite.firstIntValue(
           await db.rawQuery('SELECT COUNT(*) FROM moments'),

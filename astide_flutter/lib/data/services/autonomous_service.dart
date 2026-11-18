@@ -42,6 +42,7 @@ class AutonomousService {
     required CharacterRepository characterRepository,
     MomentsRepository? momentsRepository,
     ContextCompactionService? contextCompactionService,
+    Random? random,
     Uuid? uuid,
   })  : _openAi = openAiChatService,
         _chatRepo = chatRepository,
@@ -52,6 +53,7 @@ class AutonomousService {
               chatRepository: chatRepository,
               openAiChatService: openAiChatService,
             ),
+        _random = random ?? Random(),
         _uuid = uuid ?? const Uuid();
 
   static const MethodChannel _channel = MethodChannel('com.hoilai.mm.astide/background');
@@ -62,7 +64,7 @@ class AutonomousService {
   final MomentsRepository? _momentsRepo;
   final ContextCompactionService _compaction;
   final Uuid _uuid;
-  final Random _random = Random();
+  final Random _random;
 
   Timer? _timer;
   bool _isRunningCheck = false;
@@ -113,6 +115,16 @@ class AutonomousService {
     } catch (_) {}
   }
 
+  Future<void> triggerPokeVibration() async {
+    try {
+      await HapticFeedback.lightImpact();
+    } catch (_) {}
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _channel.invokeMethod<bool>('pokeHaptic');
+    } catch (_) {}
+  }
+
   Future<void> showNotification({
     required String title,
     required String body,
@@ -128,7 +140,29 @@ class AutonomousService {
     } catch (_) {}
   }
 
-  /// Evaluates time-of-day, silence duration, and conversation context to optionally send 1..3 messages.
+  static const String continuationUserPrompt =
+      '（微信连发消息判断：你刚发送了上面那条消息。像真人在微信里连续发两三条短消息那样，如果你还想紧接着立刻补充发送下一条简短自然的话，请直接写出下一条消息正文；如果话已经说完了，请只回复 [DONE]）';
+
+  /// Parses optional `[POKE_BACK]` and `[DONE]` / `[SKIP]` control tokens from one single-bubble AI reply.
+  static ({bool pokedBack, bool isDoneOrSkip, String text}) parseSingleReply(String rawReply) {
+    final trimmed = rawReply.trim();
+    if (trimmed.isEmpty) {
+      return (pokedBack: false, isDoneOrSkip: true, text: '');
+    }
+    final upper = trimmed.toUpperCase();
+    if (upper == '[SKIP]' || upper == '[DONE]' || upper == 'SKIP' || upper == 'DONE') {
+      return (pokedBack: false, isDoneOrSkip: true, text: '');
+    }
+    final pokedBack = RegExp(r'\[POKE_BACK\]', caseSensitive: false).hasMatch(trimmed);
+    var cleaned = trimmed
+        .replaceAll(RegExp(r'\[POKE_BACK\]', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\[DONE\]|\[SKIP\]', caseSensitive: false), '')
+        .trim();
+    final isDoneOrSkip = cleaned.isEmpty && !pokedBack;
+    return (pokedBack: pokedBack, isDoneOrSkip: isDoneOrSkip, text: cleaned);
+  }
+
+  /// Evaluates time-of-day, silence duration, and conversation context using sequential requests (1..3 bubbles).
   Future<AutonomousTriggerResult> evaluateAndSend({
     required AppSettings settings,
     required ApiProfile? activeProfile,
@@ -154,6 +188,17 @@ class AutonomousService {
         now.difference(_lastTriggerAt!).inMinutes <
             (settings.autonomousIntervalMinutes - 1).clamp(1, 720)) {
       return const AutonomousTriggerResult(sent: false, skipped: true, reason: '距离上次触发间隔较短');
+    }
+
+    if (!forceSend) {
+      final prob = settings.autonomousProbability.clamp(0.0, 1.0);
+      if (prob <= 0 || _random.nextDouble() >= prob) {
+        return AutonomousTriggerResult(
+          sent: false,
+          skipped: true,
+          reason: '本次未命中自主触发概率 (${(prob * 100).round()}%)',
+        );
+      }
     }
 
     _isRunningCheck = true;
@@ -207,6 +252,7 @@ class AutonomousService {
         forceSend: forceSend,
       );
 
+      final fastProfile = activeProfile.copyWith(supportsReasoning: false, streamEnabled: false);
       final ephemeralHistory = <ChatMessage>[
         ...compacted.recentMessages,
         ChatMessage(
@@ -218,21 +264,15 @@ class AutonomousService {
         ),
       ];
 
-      final rawBuf = StringBuffer();
-      await for (final delta in _openAi.streamChatCompletion(
-        profile: activeProfile,
+      final firstRaw = await _requestSingleReply(
+        profile: fastProfile,
         history: ephemeralHistory,
         systemPrompt: systemPrompt,
         modelOverride: character?.modelOverride,
-        maxTokens: 220,
-        forceNonStreaming: true,
-      )) {
-        rawBuf.write(delta.contentDelta);
-      }
+      );
 
       _lastTriggerAt = now;
-      final reply = rawBuf.toString().trim();
-      if (reply.isEmpty || reply.toUpperCase().contains('[SKIP]')) {
+      if (firstRaw.toUpperCase().contains('[SKIP]')) {
         return AutonomousTriggerResult(
           sent: false,
           skipped: true,
@@ -241,39 +281,100 @@ class AutonomousService {
         );
       }
 
-      final segments = reply
-          .split('|||')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .take(4)
-          .toList();
-      if (segments.isEmpty) {
-        return const AutonomousTriggerResult(sent: false, skipped: true, reason: '未生成有效消息');
+      final firstParsed = parseSingleReply(firstRaw);
+      if (firstParsed.isDoneOrSkip && !firstParsed.pokedBack) {
+        return AutonomousTriggerResult(
+          sent: false,
+          skipped: true,
+          conversationTitle: picked.title,
+          reason: 'AI 判断当前无需打扰',
+        );
       }
 
-      for (var i = 0; i < segments.length; i++) {
-        final msg = ChatMessage(
+      final targetLabel = character?.displayName ?? picked.title;
+      final segments = <String>[];
+      var insertedCount = 0;
+
+      if (firstParsed.pokedBack) {
+        await _chatRepo.insertMessage(
+          ChatMessage(
+            id: _uuid.v4(),
+            conversationId: picked.id,
+            role: MessageRole.system,
+            content: '“$targetLabel” 拍了拍你',
+            status: MessageStatus.sent,
+            createdAt: now,
+          ),
+        );
+        insertedCount++;
+      }
+
+      if (firstParsed.text.isNotEmpty) {
+        segments.add(firstParsed.text);
+        final firstMsg = ChatMessage(
           id: _uuid.v4(),
           conversationId: picked.id,
           role: MessageRole.assistant,
-          content: segments[i],
+          content: firstParsed.text,
           status: MessageStatus.sent,
-          createdAt: now.add(Duration(milliseconds: i * 15)),
+          createdAt: now.add(const Duration(milliseconds: 15)),
         );
-        await _chatRepo.insertMessage(msg);
+        await _chatRepo.insertMessage(firstMsg);
+        ephemeralHistory.add(firstMsg);
+        insertedCount++;
+
+        // Sequential follow-up requests (up to 2 extra short bubbles) without any delimiter hacks.
+        for (var extra = 1; extra <= 2; extra++) {
+          if (_random.nextDouble() >= 0.65) break;
+          final followAt = now.add(Duration(milliseconds: (extra + 1) * 15));
+          final followHistory = <ChatMessage>[
+            ...ephemeralHistory,
+            ChatMessage(
+              id: 'auto_cont_${now.millisecondsSinceEpoch}_$extra',
+              conversationId: picked.id,
+              role: MessageRole.user,
+              content: continuationUserPrompt,
+              createdAt: followAt,
+            ),
+          ];
+          final nextRaw = await _requestSingleReply(
+            profile: fastProfile,
+            history: followHistory,
+            systemPrompt: systemPrompt,
+            modelOverride: character?.modelOverride,
+          );
+          final nextParsed = parseSingleReply(nextRaw);
+          if (nextParsed.isDoneOrSkip || nextParsed.text.isEmpty) break;
+
+          segments.add(nextParsed.text);
+          final nextMsg = ChatMessage(
+            id: _uuid.v4(),
+            conversationId: picked.id,
+            role: MessageRole.assistant,
+            content: nextParsed.text,
+            status: MessageStatus.sent,
+            createdAt: followAt,
+          );
+          await _chatRepo.insertMessage(nextMsg);
+          ephemeralHistory.add(nextMsg);
+          insertedCount++;
+        }
       }
 
+      final previewBody = segments.isNotEmpty
+          ? segments.join(' ')
+          : '“$targetLabel” 拍了拍你';
       final isCurrentlyViewing = !appInBackground && activeConversationId == picked.id;
       if (!isCurrentlyViewing) {
         final fresh = await _chatRepo.getConversation(picked.id);
         if (fresh != null) {
           await _chatRepo.updateConversation(
-            fresh.copyWith(unreadCount: fresh.unreadCount + segments.length),
+            fresh.copyWith(unreadCount: fresh.unreadCount + insertedCount),
           );
         }
         await showNotification(
           title: picked.title,
-          body: segments.join(' '),
+          body: previewBody,
           notificationId: picked.id.hashCode & 0x7FFFFFFF,
         );
       }
@@ -281,7 +382,7 @@ class AutonomousService {
       return AutonomousTriggerResult(
         sent: true,
         conversationTitle: picked.title,
-        preview: segments.join(' / '),
+        preview: segments.isNotEmpty ? segments.join(' / ') : previewBody,
       );
     } catch (e) {
       return AutonomousTriggerResult(
@@ -291,6 +392,26 @@ class AutonomousService {
     } finally {
       _isRunningCheck = false;
     }
+  }
+
+  Future<String> _requestSingleReply({
+    required ApiProfile profile,
+    required List<ChatMessage> history,
+    required String systemPrompt,
+    String? modelOverride,
+  }) async {
+    final buf = StringBuffer();
+    await for (final delta in _openAi.streamChatCompletion(
+      profile: profile,
+      history: history,
+      systemPrompt: systemPrompt,
+      modelOverride: modelOverride,
+      maxTokens: 150,
+      forceNonStreaming: true,
+    )) {
+      buf.write(delta.contentDelta);
+    }
+    return buf.toString().trim();
   }
 
   String _buildSystemPrompt(AppSettings settings, CharacterProfile? character) {
@@ -316,13 +437,13 @@ class AutonomousService {
 
     if (forceSend) {
       return '【系统自主意识触发】现在时间是 $timeStr（$period），距离你们上次聊天过去了 $gapText。'
-          '请完全以你自己的真实人类身份主动给对方发微信（如结合当前时间问候、分享你手头刚刚发生的小事、或顺着上次聊过的话题关心对方）。'
-          '请自由选择发送 1~3 条自然的微信短气泡消息（多条用 ||| 分隔），不要说你是AI，不要解释原因。';
+          '请完全以你自己的真实人类身份主动给对方发一条简短自然的微信消息（如结合当前时间问候、分享你手头刚刚发生的小事、或顺着上次聊过的话题关心对方）。'
+          '一次只发一条短句即可（如需先在微信里“拍一拍”对方再开口，可在最开头加上 [POKE_BACK]）。不要说你是AI，不要解释原因。';
     }
 
     return '【系统自主意识巡检】现在时间是 $timeStr（$period），距离你们上次聊天已经过去了 $gapText。'
         '请结合当前时间点、你们的关系和上方聊天上下文，自主决定此刻是否应该主动给对方发微信：'
-        '如果你觉得现在适合发消息（比如早晨问安、饭点关心、晚间分享生活琐事、夜深提醒休息或惦记对方），请直接发送 1~3 条自然真实的微信短消息（多条用 ||| 分隔）；'
+        '如果你觉得现在适合发消息（比如早晨问安、饭点关心、晚间分享生活琐事、夜深提醒休息或惦记对方），请直接发送一条自然真实的微信短消息（可选在开头加 [POKE_BACK] 拍一拍对方）；'
         '如果你觉得此时发消息不太合适（比如刚聊完没多久或深夜不打扰），请仅回复 [SKIP]。';
   }
 

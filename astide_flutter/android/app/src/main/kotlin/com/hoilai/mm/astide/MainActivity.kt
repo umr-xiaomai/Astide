@@ -10,7 +10,11 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -92,6 +96,10 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    "pokeHaptic" -> {
+                        performGentlePokeVibration()
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -150,5 +158,27 @@ class MainActivity : FlutterActivity() {
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(notifId, notification)
+    }
+
+    private fun performGentlePokeVibration() {
+        try {
+            window?.decorView?.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vm?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(28, 70))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(28)
+                }
+            }
+        } catch (_: Throwable) {
+        }
     }
 }

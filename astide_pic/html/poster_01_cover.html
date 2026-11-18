@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>P1 封面 - 星汐 Astide</title>
+<link rel="stylesheet" href="poster_theme.css">
+<style>
+  .canvas {
+    background: linear-gradient(155deg, #F3FBF6 0%, #E7F6EC 45%, #D9EFE1 100%);
+  }
+  .glow-1 {
+    width: 640px; height: 640px;
+    top: -160px; right: -120px;
+    background: rgba(7, 193, 96, 0.22);
+  }
+  .glow-2 {
+    width: 520px; height: 520px;
+    bottom: 80px; left: -160px;
+    background: rgba(77, 107, 254, 0.12);
+  }
+  .page-tag {
+    background: #07C160;
+    color: #FFFFFF;
+    box-shadow: 0 10px 24px rgba(7, 193, 96, 0.28);
+  }
+  .eyebrow {
+    background: rgba(7, 193, 96, 0.14);
+    color: #05964A;
+  }
+  .headline {
+    font-size: 82px;
+    color: #111814;
+  }
+  .headline .accent {
+    color: #07C160;
+  }
+  .subhead {
+    color: #3E4D44;
+  }
+  .stage {
+    position: relative;
+    z-index: 2;
+    height: 920px;
+    margin-top: 12px;
+  }
+  .phone-back {
+    position: absolute;
+    left: 20px;
+    top: 38px;
+    width: 446px;
+    height: 860px;
+    transform: rotate(-3.2deg);
+    opacity: 0.96;
+  }
+  .phone-front {
+    position: absolute;
+    right: 12px;
+    top: 0;
+    width: 486px;
+    height: 900px;
+    transform: rotate(1.6deg);
+    z-index: 3;
+  }
+  .float-card {
+    position: absolute;
+    left: 14px;
+    bottom: 24px;
+    z-index: 4;
+    width: 540px;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 26px;
+    padding: 24px 28px;
+    box-shadow: 0 22px 48px rgba(10, 38, 22, 0.16);
+    border: 1.5px solid rgba(7, 193, 96, 0.24);
+  }
+  .float-card h3 {
+    font-size: 30px;
+    font-weight: 800;
+    color: #111814;
+    margin-bottom: 10px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .chip {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #F0F9F3;
+    color: #068944;
+    font-size: 22px;
+    font-weight: 700;
+    border: 1px solid rgba(7, 193, 96, 0.22);
+  }
+  .footer {
+    color: #415247;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <div class="topbar">
+    <div class="brand-pill">
+      <img src="../logo/astide_logo.svg" alt="Astide Logo">
+      <span>星汐 Astide</span>
+    </div>
+    <div class="page-tag">开源全本地 AI 伴侣</div>
+  </div>
+
+  <div class="hero-text">
+    <div class="eyebrow">WeUI 纯正视觉 · 免登录 · 01/08</div>
+    <h1 class="headline">把 AI 塞进<span class="accent">高仿微信</span>里<br>像真人好友一样聊天</h1>
+    <p class="subhead">拒绝网页聊天框与“AI味”模板：朋友圈 / 双击拍一拍 / 多次请求连发 / DeepSeek 迁移</p>
+  </div>
+
+  <div class="stage">
+    <div class="phone-frame phone-back">
+      <img class="phone-screen" src="../screenshots/01_chat_list.png" alt="微信首页对话列表">
+    </div>
+    <div class="phone-frame phone-front">
+      <img class="phone-screen" src="../screenshots/02_chat_detail_poke.png" alt="聊天内气泡与拍一拍">
+    </div>
+    <div class="float-card">
+      <h3>为什么和普通 AI 套壳不一样？</h3>
+      <div class="chips">
+        <span class="chip">全本地 SQLite 存储</span>
+        <span class="chip">多次请求真连发气泡</span>
+        <span class="chip">双击头像震动拍一拍</span>
+        <span class="chip">AI 自发朋友圈</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>获取方式：QQ 群 1103072298</span>
+    <span>DeepSeek V4.1 &amp; OpenAI 兼容</span>
+  </div>
+</div>
+</body>
+</html>
