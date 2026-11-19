@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app_scope.dart';
 import '../../../../data/services/autonomous_service.dart';
 import '../../../../data/services/context_compaction_service.dart';
+import '../../../../data/services/multi_reply_guard.dart';
 import '../../../../domain/models/api_profile.dart';
 import '../../../../domain/models/character_profile.dart';
 import '../../../../domain/models/chat_attachment.dart';
@@ -46,6 +47,7 @@ class ChatDetailViewModel extends ChangeNotifier {
     required AppController appController,
     required Conversation conversation,
     Random? random,
+    this.followUpDelayOverride,
   })  : _app = appController,
         _conversation = conversation, // ignore: prefer_initializing_formals
         _random = random ?? Random();
@@ -53,6 +55,7 @@ class ChatDetailViewModel extends ChangeNotifier {
   final AppController _app;
   final ImagePicker _imagePicker = ImagePicker();
   final Random _random;
+  final Duration? followUpDelayOverride;
 
   Conversation _conversation;
   Conversation get conversation => _conversation;
@@ -83,6 +86,8 @@ class ChatDetailViewModel extends ChangeNotifier {
 
   CancelToken? _cancelToken;
   StreamSubscription<dynamic>? _streamSub;
+  Completer<ChatMessage?>? _activePrimaryCompleter;
+  int _generationToken = 0;
   bool _disposed = false;
   bool _pokeReplyInFlight = false;
   DateTime? _lastPokeReplyAt;
@@ -226,6 +231,10 @@ class ChatDetailViewModel extends ChangeNotifier {
     if (text.isEmpty && _pendingAttachments.isEmpty) return;
     if (_isStreaming) return;
 
+    // Lock synchronously before any await so rapid double-taps cannot spawn duplicate replies.
+    final token = ++_generationToken;
+    _isStreaming = true;
+
     final userMsgId = _app.newId();
     final now = DateTime.now();
     final attachments = _pendingAttachments
@@ -255,25 +264,35 @@ class ChatDetailViewModel extends ChangeNotifier {
     );
 
     _messages = [..._messages, userMsg];
-    _safeNotify();
-    await _app.chatRepository.insertMessage(userMsg);
-    unawaited(_app.reloadConversations());
-
     final profile = _app.activeApiProfile;
     if (hasImages && profile != null && !profile.supportsVision) {
       _statusNotice = '提示：当前模型（${profile.model}）未开启 Vision 视觉识别，图片已保存至本地但仅向模型发送文件名。可在 API 设置中开启 Vision。';
-      _safeNotify();
     }
+    _safeNotify();
 
-    await _generateAssistantReply();
+    try {
+      await _app.chatRepository.insertMessage(userMsg);
+      unawaited(_app.reloadConversations());
+      if (!_isActiveToken(token)) return;
+      await _generateAssistantReply(token);
+    } finally {
+      _finishGenerationIfActive(token);
+    }
   }
 
   Future<void> retryMessage(ChatMessage failedAssistantMsg) async {
     if (_isStreaming) return;
-    _messages.removeWhere((m) => m.id == failedAssistantMsg.id);
-    await _app.chatRepository.deleteMessage(failedAssistantMsg.id, _conversation.id);
+    final token = ++_generationToken;
+    _isStreaming = true;
+    _messages = _messages.where((m) => m.id != failedAssistantMsg.id).toList();
     _safeNotify();
-    await _generateAssistantReply();
+    try {
+      await _app.chatRepository.deleteMessage(failedAssistantMsg.id, _conversation.id);
+      if (!_isActiveToken(token)) return;
+      await _generateAssistantReply(token);
+    } finally {
+      _finishGenerationIfActive(token);
+    }
   }
 
   Future<void> regenerateLastReply() async {
@@ -282,13 +301,21 @@ class ChatDetailViewModel extends ChangeNotifier {
     final lastUserIdx = _messages.lastIndexWhere((m) => m.isUser);
     if (lastUserIdx < 0) return;
 
+    final token = ++_generationToken;
+    _isStreaming = true;
     final toRemove = _messages.sublist(lastUserIdx + 1);
-    for (final msg in toRemove) {
-      await _app.chatRepository.deleteMessage(msg.id, _conversation.id);
-    }
     _messages = _messages.sublist(0, lastUserIdx + 1);
     _safeNotify();
-    await _generateAssistantReply();
+
+    try {
+      for (final msg in toRemove) {
+        await _app.chatRepository.deleteMessage(msg.id, _conversation.id);
+      }
+      if (!_isActiveToken(token)) return;
+      await _generateAssistantReply(token);
+    } finally {
+      _finishGenerationIfActive(token);
+    }
   }
 
   Future<void> deleteMessage(ChatMessage msg) async {
@@ -299,11 +326,32 @@ class ChatDetailViewModel extends ChangeNotifier {
   }
 
   Future<void> stopGenerating() async {
+    _generationToken++;
     _cancelToken?.cancel('stopped_by_user');
     await _streamSub?.cancel();
     _streamSub = null;
+    if (_activePrimaryCompleter != null && !_activePrimaryCompleter!.isCompleted) {
+      _activePrimaryCompleter!.complete(null);
+    }
+    _activePrimaryCompleter = null;
+    _messages = _messages
+        .where((m) => !(m.status == MessageStatus.streaming && m.content.trim().isEmpty))
+        .toList();
     if (_isStreaming) {
       _isStreaming = false;
+      _safeNotify();
+    }
+  }
+
+  bool _isActiveToken(int token) {
+    return !_disposed && token == _generationToken && !(_cancelToken?.isCancelled ?? false);
+  }
+
+  void _finishGenerationIfActive(int token) {
+    if (token == _generationToken) {
+      _isStreaming = false;
+      _streamSub = null;
+      _activePrimaryCompleter = null;
       _safeNotify();
     }
   }
@@ -460,7 +508,7 @@ class ChatDetailViewModel extends ChangeNotifier {
     return (history: baseHistory, systemPrompt: systemPrompt);
   }
 
-  Future<void> _generateAssistantReply() async {
+  Future<void> _generateAssistantReply(int token) async {
     final profile = _app.activeApiProfile;
     final assistantId = _app.newId();
     final createdAt = DateTime.now();
@@ -497,14 +545,14 @@ class ChatDetailViewModel extends ChangeNotifier {
     _safeNotify();
 
     final ctx = await _prepareLlmContext(profile, excludeMessageId: assistantId);
-    if (_disposed || (_cancelToken?.isCancelled ?? false)) {
-      _messages.removeWhere((m) => m.id == assistantId);
-      _isStreaming = false;
+    if (!_isActiveToken(token)) {
+      _messages = _messages.where((m) => m.id != assistantId).toList();
       _safeNotify();
       return;
     }
 
     final firstMsg = await _streamPrimaryReply(
+      token: token,
       assistantId: assistantId,
       createdAt: createdAt,
       profile: profile,
@@ -513,33 +561,31 @@ class ChatDetailViewModel extends ChangeNotifier {
       placeholder: streamingPlaceholder,
     );
 
-    // For conversational personas, perform up to 2 lightweight sequential follow-up requests
-    // so multi-bubble WeChat turns arrive organically without delimiter splitting artifacts.
-    final shouldAttemptMultiRequest = firstMsg != null &&
+    // For conversational personas with segmented replies enabled, issue natural sequential
+    // buffered follow-up requests guarded against duplicates, echoes, and meta-chatter.
+    final allowMultiBubble = (_character?.segmentedReply ?? true) &&
+        _conversation.sourceType != ConversationSourceType.deepseekImport;
+    if (allowMultiBubble &&
+        firstMsg != null &&
         firstMsg.status == MessageStatus.sent &&
         firstMsg.content.isNotEmpty &&
-        !firstMsg.content.contains('```') &&
-        firstMsg.content.length < 180 &&
-        !_disposed &&
-        !(_cancelToken?.isCancelled ?? false) &&
-        _conversation.sourceType != ConversationSourceType.deepseekImport;
-
-    if (shouldAttemptMultiRequest) {
+        _isActiveToken(token)) {
       await _runSequentialContinuationRequests(
+        token: token,
         profile: profile,
         initialHistory: [...ctx.history, firstMsg],
         systemPrompt: ctx.systemPrompt,
+        firstBubbleText: firstMsg.content,
         baseTime: firstMsg.createdAt,
+        segmentedReplyEnabled: allowMultiBubble,
       );
     }
 
-    _isStreaming = false;
-    _streamSub = null;
-    _safeNotify();
     unawaited(_app.reloadConversations());
   }
 
   Future<ChatMessage?> _streamPrimaryReply({
+    required int token,
     required String assistantId,
     required DateTime createdAt,
     required ApiProfile profile,
@@ -553,11 +599,13 @@ class ChatDetailViewModel extends ChangeNotifier {
     DateTime? thinkingStart;
     var thinkingSecs = 0.0;
     final completer = Completer<ChatMessage?>();
+    _activePrimaryCompleter = completer;
 
     void updateLiveBubble({
       MessageStatus status = MessageStatus.streaming,
       String errorMessage = '',
     }) {
+      if (!_isActiveToken(token) && status == MessageStatus.streaming) return;
       final idx = _messages.indexWhere((m) => m.id == assistantId);
       if (idx >= 0) {
         _messages[idx] = _messages[idx].copyWith(
@@ -581,6 +629,7 @@ class ChatDetailViewModel extends ChangeNotifier {
 
     _streamSub = stream.listen(
       (delta) {
+        if (!_isActiveToken(token)) return;
         if (delta.reasoningDelta.isNotEmpty) {
           thinkingStart ??= DateTime.now();
           reasoningBuf.write(delta.reasoningDelta);
@@ -595,6 +644,10 @@ class ChatDetailViewModel extends ChangeNotifier {
       },
       onError: (Object err) async {
         _streamSub = null;
+        if (!_isActiveToken(token)) {
+          if (!completer.isCompleted) completer.complete(null);
+          return;
+        }
         final errText = err.toString().replaceFirst('HttpException: ', '');
         updateLiveBubble(
           status: MessageStatus.error,
@@ -612,10 +665,14 @@ class ChatDetailViewModel extends ChangeNotifier {
       },
       onDone: () async {
         _streamSub = null;
+        if (!_isActiveToken(token)) {
+          if (!completer.isCompleted) completer.complete(null);
+          return;
+        }
         final trimmed = contentBuf.toString().trim();
         final trimmedReasoning = reasoningBuf.toString().trim();
         if (trimmed.isEmpty && trimmedReasoning.isEmpty) {
-          _messages.removeWhere((m) => m.id == assistantId);
+          _messages = _messages.where((m) => m.id != assistantId).toList();
           _safeNotify();
           if (!completer.isCompleted) completer.complete(null);
           return;
@@ -644,151 +701,138 @@ class ChatDetailViewModel extends ChangeNotifier {
       cancelOnError: true,
     );
 
-    return completer.future;
+    final result = await completer.future;
+    if (identical(_activePrimaryCompleter, completer)) {
+      _activePrimaryCompleter = null;
+    }
+    return result;
   }
 
   Future<void> _runSequentialContinuationRequests({
+    required int token,
     required ApiProfile profile,
     required List<ChatMessage> initialHistory,
     required String systemPrompt,
+    required String firstBubbleText,
     required DateTime baseTime,
+    required bool segmentedReplyEnabled,
   }) async {
     final runningHistory = List<ChatMessage>.from(initialHistory);
-    final followUpProfile = profile.copyWith(supportsReasoning: false);
+    final sentBubbles = <String>[firstBubbleText];
+    final lastUserText = initialHistory
+        .lastWhere(
+          (m) => m.isUser,
+          orElse: () => ChatMessage(
+            id: '',
+            conversationId: _conversation.id,
+            role: MessageRole.user,
+            content: '',
+            createdAt: baseTime,
+          ),
+        )
+        .content;
+    final followUpProfile = profile.copyWith(supportsReasoning: false, streamEnabled: false);
 
-    for (var extra = 1; extra <= 2; extra++) {
-      if (_disposed || (_cancelToken?.isCancelled ?? false)) break;
-      await Future<void>.delayed(const Duration(milliseconds: 280));
-      if (_disposed || (_cancelToken?.isCancelled ?? false)) break;
+    for (var extra = 1; extra <= MultiReplyGuard.maxExtraBubbles; extra++) {
+      if (!_isActiveToken(token)) break;
+
+      final shouldContinue = MultiReplyGuard.shouldRequestFollowUp(
+        segmentedReplyEnabled: segmentedReplyEnabled,
+        sentBubbles: sentBubbles,
+        extraIndex: extra,
+        random: _random,
+      );
+      if (!shouldContinue) break;
+
+      final pause = followUpDelayOverride ??
+          Duration(milliseconds: 380 + _random.nextInt(320));
+      if (pause > Duration.zero) {
+        await Future<void>.delayed(pause);
+      }
+      if (!_isActiveToken(token)) break;
 
       final turnTime = baseTime.add(Duration(milliseconds: extra * 15));
+      final followUpSystemPrompt = MultiReplyGuard.buildFollowUpSystemPrompt(
+        baseSystemPrompt: systemPrompt,
+        sentBubbles: sentBubbles,
+        nextBubbleIndex: sentBubbles.length + 1,
+      );
       final requestHistory = <ChatMessage>[
         ...runningHistory,
         ChatMessage(
           id: 'cont_${turnTime.millisecondsSinceEpoch}_$extra',
           conversationId: _conversation.id,
           role: MessageRole.user,
-          content: AutonomousService.continuationUserPrompt,
+          content: MultiReplyGuard.buildFollowUpUserCue(sentBubbles: sentBubbles),
           createdAt: turnTime,
         ),
       ];
 
-      final nextMsg = await _streamFollowUpMessage(
+      final rawReply = await _requestBufferedFollowUp(
+        token: token,
         profile: followUpProfile,
         history: requestHistory,
-        systemPrompt: systemPrompt,
-        createdAt: turnTime,
+        systemPrompt: followUpSystemPrompt,
       );
-      if (nextMsg == null || nextMsg.content.isEmpty) break;
+      if (!_isActiveToken(token) || rawReply == null) break;
+
+      final evaluation = MultiReplyGuard.evaluateFollowUp(
+        rawReply: rawReply,
+        sentBubblesInTurn: sentBubbles,
+        lastUserText: lastUserText,
+      );
+      if (!evaluation.accepted || evaluation.text.isEmpty) break;
+
+      final nowTime = DateTime.now();
+      final lastTime = runningHistory.last.createdAt;
+      final msgTime = nowTime.isAfter(lastTime)
+          ? nowTime
+          : lastTime.add(const Duration(milliseconds: 10));
+      final nextMsg = ChatMessage(
+        id: _app.newId(),
+        conversationId: _conversation.id,
+        role: MessageRole.assistant,
+        content: evaluation.text,
+        status: MessageStatus.sent,
+        createdAt: msgTime,
+      );
+      _messages = [..._messages, nextMsg];
+      _safeNotify();
+      await _app.chatRepository.insertMessage(nextMsg);
+      sentBubbles.add(evaluation.text);
       runningHistory.add(nextMsg);
+
+      if (evaluation.stopChain) break;
     }
   }
 
-  bool _couldBeControlTokenPrefix(String raw) {
-    final upper = raw.trimLeft().toUpperCase();
-    if (upper.isEmpty) return true;
-    if (!upper.startsWith('[')) return false;
-    return '[DONE]'.startsWith(upper) || '[SKIP]'.startsWith(upper);
-  }
-
-  Future<ChatMessage?> _streamFollowUpMessage({
+  Future<String?> _requestBufferedFollowUp({
+    required int token,
     required ApiProfile profile,
     required List<ChatMessage> history,
     required String systemPrompt,
-    required DateTime createdAt,
   }) async {
-    final msgId = _app.newId();
-    final contentBuf = StringBuffer();
-    var bubbleInserted = false;
-    final completer = Completer<ChatMessage?>();
-
-    void ensureVisibleBubble() {
-      if (!bubbleInserted) {
-        bubbleInserted = true;
-        _messages = [
-          ..._messages,
-          ChatMessage(
-            id: msgId,
-            conversationId: _conversation.id,
-            role: MessageRole.assistant,
-            content: contentBuf.toString().trimLeft(),
-            status: MessageStatus.streaming,
-            createdAt: createdAt,
-          ),
-        ];
-        _safeNotify();
-      } else {
-        final idx = _messages.indexWhere((m) => m.id == msgId);
-        if (idx >= 0) {
-          _messages[idx] = _messages[idx].copyWith(
-            content: contentBuf.toString().trimLeft(),
-          );
-          _safeNotify();
+    try {
+      final buf = StringBuffer();
+      await for (final delta in _app.openAiChatService.streamChatCompletion(
+        profile: profile,
+        history: history,
+        systemPrompt: systemPrompt,
+        modelOverride: _character?.modelOverride,
+        maxTokens: 96,
+        forceNonStreaming: true,
+        cancelToken: _cancelToken,
+      )) {
+        if (!_isActiveToken(token)) return null;
+        if (delta.contentDelta.isNotEmpty) {
+          buf.write(delta.contentDelta);
         }
       }
+      if (!_isActiveToken(token)) return null;
+      return buf.toString();
+    } catch (_) {
+      return null;
     }
-
-    final stream = _app.openAiChatService.streamChatCompletion(
-      profile: profile,
-      history: history,
-      systemPrompt: systemPrompt,
-      modelOverride: _character?.modelOverride,
-      maxTokens: 120,
-      cancelToken: _cancelToken,
-    );
-
-    _streamSub = stream.listen(
-      (delta) {
-        if (delta.contentDelta.isNotEmpty) {
-          contentBuf.write(delta.contentDelta);
-          final raw = contentBuf.toString();
-          if (bubbleInserted || !_couldBeControlTokenPrefix(raw)) {
-            ensureVisibleBubble();
-          }
-        }
-      },
-      onError: (_) {
-        _streamSub = null;
-        if (bubbleInserted) {
-          _messages.removeWhere((m) => m.id == msgId);
-          _safeNotify();
-        }
-        if (!completer.isCompleted) completer.complete(null);
-      },
-      onDone: () async {
-        _streamSub = null;
-        final parsed = AutonomousService.parseSingleReply(contentBuf.toString());
-        if (parsed.isDoneOrSkip || parsed.text.isEmpty) {
-          if (bubbleInserted) {
-            _messages.removeWhere((m) => m.id == msgId);
-            _safeNotify();
-          }
-          if (!completer.isCompleted) completer.complete(null);
-          return;
-        }
-
-        final finalMsg = ChatMessage(
-          id: msgId,
-          conversationId: _conversation.id,
-          role: MessageRole.assistant,
-          content: parsed.text,
-          status: MessageStatus.sent,
-          createdAt: createdAt,
-        );
-        final idx = _messages.indexWhere((m) => m.id == msgId);
-        if (idx >= 0) {
-          _messages[idx] = finalMsg;
-        } else {
-          _messages = [..._messages, finalMsg];
-        }
-        _safeNotify();
-        await _app.chatRepository.insertMessage(finalMsg);
-        if (!completer.isCompleted) completer.complete(finalMsg);
-      },
-      cancelOnError: true,
-    );
-
-    return completer.future;
   }
 
   String _buildSystemPrompt() {
@@ -819,8 +863,13 @@ class ChatDetailViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _generationToken++;
     _cancelToken?.cancel();
     _streamSub?.cancel();
+    if (_activePrimaryCompleter != null && !_activePrimaryCompleter!.isCompleted) {
+      _activePrimaryCompleter!.complete(null);
+    }
+    _activePrimaryCompleter = null;
     super.dispose();
   }
 }

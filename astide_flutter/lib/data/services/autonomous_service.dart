@@ -15,6 +15,7 @@ import '../repositories/character_repository.dart';
 import '../repositories/chat_repository.dart';
 import '../repositories/moments_repository.dart';
 import 'context_compaction_service.dart';
+import 'multi_reply_guard.dart';
 import 'openai_chat_service.dart';
 
 /// Result returned by an autonomous proactive-messaging evaluation cycle.
@@ -139,9 +140,6 @@ class AutonomousService {
       });
     } catch (_) {}
   }
-
-  static const String continuationUserPrompt =
-      '（微信连发消息判断：你刚发送了上面那条消息。像真人在微信里连续发两三条短消息那样，如果你还想紧接着立刻补充发送下一条简短自然的话，请直接写出下一条消息正文；如果话已经说完了，请只回复 [DONE]）';
 
   /// Parses optional `[POKE_BACK]` and `[DONE]` / `[SKIP]` control tokens from one single-bubble AI reply.
   static ({bool pokedBack, bool isDoneOrSkip, String text}) parseSingleReply(String rawReply) {
@@ -323,41 +321,58 @@ class AutonomousService {
         ephemeralHistory.add(firstMsg);
         insertedCount++;
 
-        // Sequential follow-up requests (up to 2 extra short bubbles) without any delimiter hacks.
-        for (var extra = 1; extra <= 2; extra++) {
-          if (_random.nextDouble() >= 0.65) break;
+        // Sequential follow-up requests (up to 2 extra short bubbles) guarded against duplicates.
+        for (var extra = 1; extra <= MultiReplyGuard.maxExtraBubbles; extra++) {
+          final shouldContinue = MultiReplyGuard.shouldRequestFollowUp(
+            segmentedReplyEnabled: character?.segmentedReply ?? true,
+            sentBubbles: segments,
+            extraIndex: extra,
+            random: _random,
+          );
+          if (!shouldContinue) break;
+
           final followAt = now.add(Duration(milliseconds: (extra + 1) * 15));
+          final followSystemPrompt = MultiReplyGuard.buildFollowUpSystemPrompt(
+            baseSystemPrompt: systemPrompt,
+            sentBubbles: segments,
+            nextBubbleIndex: segments.length + 1,
+          );
           final followHistory = <ChatMessage>[
             ...ephemeralHistory,
             ChatMessage(
               id: 'auto_cont_${now.millisecondsSinceEpoch}_$extra',
               conversationId: picked.id,
               role: MessageRole.user,
-              content: continuationUserPrompt,
+              content: MultiReplyGuard.buildFollowUpUserCue(sentBubbles: segments),
               createdAt: followAt,
             ),
           ];
           final nextRaw = await _requestSingleReply(
             profile: fastProfile,
             history: followHistory,
-            systemPrompt: systemPrompt,
+            systemPrompt: followSystemPrompt,
             modelOverride: character?.modelOverride,
           );
-          final nextParsed = parseSingleReply(nextRaw);
-          if (nextParsed.isDoneOrSkip || nextParsed.text.isEmpty) break;
+          final evaluation = MultiReplyGuard.evaluateFollowUp(
+            rawReply: nextRaw,
+            sentBubblesInTurn: segments,
+          );
+          if (!evaluation.accepted || evaluation.text.isEmpty) break;
 
-          segments.add(nextParsed.text);
+          segments.add(evaluation.text);
           final nextMsg = ChatMessage(
             id: _uuid.v4(),
             conversationId: picked.id,
             role: MessageRole.assistant,
-            content: nextParsed.text,
+            content: evaluation.text,
             status: MessageStatus.sent,
             createdAt: followAt,
           );
           await _chatRepo.insertMessage(nextMsg);
           ephemeralHistory.add(nextMsg);
           insertedCount++;
+
+          if (evaluation.stopChain) break;
         }
       }
 
