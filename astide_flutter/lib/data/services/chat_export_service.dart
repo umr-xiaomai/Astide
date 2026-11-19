@@ -9,6 +9,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'package:xml/xml.dart';
 
+import '../../app_version.dart';
 import '../../domain/models/app_settings.dart';
 import '../../domain/models/character_profile.dart';
 import '../../domain/models/chat_message.dart';
@@ -119,7 +120,7 @@ class ChatExportService {
   final Directory? tempDirOverride;
   final Uuid _uuid;
 
-  static const String appVersion = '0.1.0';
+  static const String appVersion = kAppVersion;
   static final RegExp _invalidXmlChars =
       RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]');
   static const HtmlEscape _htmlEscape = HtmlEscape(HtmlEscapeMode.element);

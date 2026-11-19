@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../app_scope.dart';
+import '../../../../app_version.dart';
 import '../../../core/theme/wechat_theme.dart';
 import '../../../core/widgets/wechat_avatar.dart';
 import '../../../core/widgets/weui_widgets.dart';
@@ -163,7 +164,7 @@ class MeTab extends StatelessWidget {
               WeuiCell(
                 title: '关于星汐 Astide',
                 leading: const Icon(Icons.info_outline, color: WeuiColors.link, size: 24),
-                trailingText: 'v0.1.0',
+                trailingText: 'v$kAppVersion',
                 showArrow: true,
                 onTap: () => _showAboutDialog(context),
               ),
@@ -203,7 +204,7 @@ class MeTab extends StatelessWidget {
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: WeuiColors.fg0),
                       ),
                       Text(
-                        'v0.1.0 · WeChat Style Local AI',
+                        'v$kAppVersion · WeChat Style Local AI',
                         style: TextStyle(fontSize: 12.5, color: WeuiColors.fg1),
                       ),
                     ],
@@ -212,7 +213,7 @@ class MeTab extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                '版本：0.1.0\n包名：com.hoilai.mm.astide\n数据存储：全本地 SQLite（无需登录）\n开源协议：GNU AGPL-3.0\n项目主页：https://github.com/umr-xiaomai/Astide',
+                '版本：$kAppVersion\n包名：com.hoilai.mm.astide\n数据存储：全本地 SQLite（无需登录）\n开源协议：GNU AGPL-3.0\n项目主页：https://github.com/umr-xiaomai/Astide',
                 style: TextStyle(fontSize: 14, color: WeuiColors.fg1, height: 1.55),
               ),
               const SizedBox(height: 18),
